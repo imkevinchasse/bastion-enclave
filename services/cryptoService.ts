@@ -2,7 +2,7 @@ import { VaultState, Resonance } from "../types";
 
 const ITERATIONS = 100_000;
 const DIGEST = "SHA-512";
-const MAGIC_BYTES = new Uint8Array([0x42, 0x41, 0x53, 0x54, 0x49, 0x4f, 0x4e, 0x31]); // BASTION1
+const MAGIC_BYTES = new Uint8Array([0x42, 0x41, 0x53, 0x54, 0x49, 0x4f, 0x4e, 0x31]);
 
 const GLYPHS = {
   ALPHA: "abcdefghijklmnopqrstuvwxyz",
@@ -13,24 +13,31 @@ const GLYPHS = {
 
 const cryptoAPI = globalThis.crypto;
 
+/* ===================== HELPERS ===================== */
+
+function toArrayBuffer(view: Uint8Array): ArrayBuffer {
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+}
+
 /* ===================== CHAOS LOCK ===================== */
 
 export class ChaosLock {
   static getUUID(): string {
-    if (cryptoAPI.randomUUID) return cryptoAPI.randomUUID();
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === "x" ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
+    return cryptoAPI.randomUUID
+      ? cryptoAPI.randomUUID()
+      : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+          const r = (Math.random() * 16) | 0;
+          const v = c === "x" ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
   }
 
   static enc(str: string): Uint8Array {
     return new TextEncoder().encode(str);
   }
 
-  static dec(buf: ArrayBuffer): string {
-    return new TextDecoder().decode(buf);
+  static dec(view: Uint8Array): string {
+    return new TextDecoder().decode(toArrayBuffer(view));
   }
 
   static concat(...arrays: Uint8Array[]): Uint8Array {
@@ -45,9 +52,7 @@ export class ChaosLock {
   }
 
   static buf2hex(buf: ArrayBuffer): string {
-    return [...new Uint8Array(buf)]
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
   static hex2buf(hex: string): Uint8Array {
@@ -59,10 +64,7 @@ export class ChaosLock {
   }
 
   static async computeHash(data: Uint8Array): Promise<string> {
-    const hash = await cryptoAPI.subtle.digest(
-      "SHA-256",
-      data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
-    );
+    const hash = await cryptoAPI.subtle.digest("SHA-256", toArrayBuffer(data));
     return this.buf2hex(hash);
   }
 
@@ -72,8 +74,7 @@ export class ChaosLock {
       true,
       ["encrypt", "decrypt"]
     );
-    const raw = await cryptoAPI.subtle.exportKey("raw", key);
-    return this.buf2hex(raw);
+    return this.buf2hex(await cryptoAPI.subtle.exportKey("raw", key));
   }
 
   private static async deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
@@ -88,7 +89,7 @@ export class ChaosLock {
     return cryptoAPI.subtle.deriveKey(
       {
         name: "PBKDF2",
-        salt: salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength),
+        salt: toArrayBuffer(salt),
         iterations: ITERATIONS,
         hash: "SHA-256",
       },
@@ -107,7 +108,7 @@ export class ChaosLock {
     const encrypted = await cryptoAPI.subtle.encrypt(
       { name: "AES-GCM", iv },
       key,
-      data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      toArrayBuffer(data)
     );
 
     return this.concat(salt, iv, new Uint8Array(encrypted));
@@ -125,22 +126,21 @@ export class ChaosLock {
     const decrypted = await cryptoAPI.subtle.decrypt(
       { name: "AES-GCM", iv },
       key,
-      cipher.buffer.slice(cipher.byteOffset, cipher.byteOffset + cipher.byteLength)
+      toArrayBuffer(cipher)
     );
 
     return new Uint8Array(decrypted);
   }
 
   static async pack(state: VaultState, password: string): Promise<string> {
-    const raw = this.enc(JSON.stringify(state));
-    const encrypted = await this.encryptBinary(raw, password);
+    const encrypted = await this.encryptBinary(this.enc(JSON.stringify(state)), password);
     return btoa(String.fromCharCode(...encrypted));
   }
 
   static async unpack(blob: string, password: string): Promise<VaultState> {
     const bytes = Uint8Array.from(atob(blob), c => c.charCodeAt(0));
     const decrypted = await this.decryptBinary(bytes, password);
-    return JSON.parse(this.dec(decrypted.buffer));
+    return JSON.parse(this.dec(decrypted));
   }
 }
 
@@ -164,7 +164,7 @@ export class ResonanceEngine {
     const encrypted = await cryptoAPI.subtle.encrypt(
       { name: "AES-GCM", iv },
       key,
-      data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      toArrayBuffer(data)
     );
 
     const header = ChaosLock.concat(
@@ -202,7 +202,7 @@ export class ResonanceEngine {
     const decrypted = await cryptoAPI.subtle.decrypt(
       { name: "AES-GCM", iv },
       key,
-      cipher.buffer.slice(cipher.byteOffset, cipher.byteOffset + cipher.byteLength)
+      toArrayBuffer(cipher)
     );
 
     return new Uint8Array(decrypted);
@@ -237,8 +237,9 @@ export class ChaosEngine {
   }
 
   static generateEntropy(): string {
-    const b = cryptoAPI.getRandomValues(new Uint8Array(32));
-    return [...b].map(x => x.toString(16).padStart(2, "0")).join("");
+    return [...cryptoAPI.getRandomValues(new Uint8Array(32))]
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   static async transmute(master: string, ctx: {
