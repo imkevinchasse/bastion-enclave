@@ -1,3 +1,4 @@
+
 export const PYTHON_BASTION_SCRIPT = `
 import os
 import json
@@ -92,7 +93,7 @@ class ChaosEngine:
             'alpha': 'abcdefghijklmnopqrstuvwxyz',
             'caps': 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
             'num': '0123456789',
-            'sym': '!@#$%^&*()_+-=[]{}|;:,.<>?'
+            'sym': '!@#$%^&*()_+-=[]{}|;:,.<>?',
         }
         
         pool = glyphs['alpha'] + glyphs['caps'] + glyphs['num']
@@ -120,16 +121,95 @@ class ChaosEngine:
             
         return "".join(arr)
 
+class BastionLocker:
+    @staticmethod
+    def decrypt_file(file_path: str, key_hex: str) -> str:
+        if not CRYPTO_AVAILABLE:
+            raise ImportError("Cryptography module required.")
+            
+        if not os.path.exists(file_path):
+            raise FileNotFoundError("File not found.")
+            
+        with open(file_path, 'rb') as f:
+            data = f.read()
+            
+        # Header Check (8 bytes)
+        if data[0:8] != MAGIC_BYTES:
+            raise ValueError("Invalid BASTION file format (Magic Bytes mismatch).")
+            
+        # Extract parts
+        # Header (8) + ID (36) + IV (12) + Ciphertext
+        iv = data[44:56]
+        ciphertext = data[56:]
+        
+        key = bytes.fromhex(key_hex)
+        aesgcm = AESGCM(key)
+        
+        try:
+            plaintext = aesgcm.decrypt(iv, ciphertext, None)
+            
+            # Determine output filename (remove .bastion extension if present)
+            out_path = file_path.replace('.bastion', '')
+            if out_path == file_path:
+                out_path += '.decrypted'
+                
+            with open(out_path, 'wb') as f_out:
+                f_out.write(plaintext)
+                
+            return out_path
+        except Exception as e:
+            raise ValueError("Decryption failed. Invalid Key or corrupted file.")
+    
+    @staticmethod
+    def encrypt_file(file_path: str) -> None:
+        if not CRYPTO_AVAILABLE:
+            raise ImportError("Cryptography module required.")
+        
+        if not os.path.exists(file_path):
+            raise FileNotFoundError("File not found.")
+
+        # 1. Generate Metadata
+        file_id = str(uuid.uuid4())
+        key = AESGCM.generate_key(bit_length=256)
+        key_hex = key.hex()
+        iv = os.urandom(12)
+        
+        # 2. Encrypt
+        aesgcm = AESGCM(key)
+        with open(file_path, 'rb') as f:
+            plaintext = f.read()
+            
+        ciphertext = aesgcm.encrypt(iv, plaintext, None)
+        
+        # 3. Construct Artifact
+        # Header: MAGIC(8) + ID(36) + IV(12) + Ciphertext
+        id_bytes = file_id.ljust(36, ' ').encode()[:36]
+        blob = MAGIC_BYTES + id_bytes + iv + ciphertext
+        
+        out_path = file_path + '.bastion'
+        with open(out_path, 'wb') as f_out:
+            f_out.write(blob)
+            
+        print(f"\\n[SUCCESS] File encrypted: {out_path}")
+        print(f"{'-'*40}")
+        print(f"FILE ID : {file_id}")
+        print(f"KEY     : {key_hex}")
+        print(f"{'-'*40}")
+        print("[!] SAVE THIS KEY. Without it, the file is unrecoverable.")
+        print("[!] Add this entry to your Vault Locker manually.")
+
 def main():
     print(f"\\n{'='*60}")
-    print(" BASTION SECURE ENCLAVE // PYTHON RUNTIME v2.0")
+    print(" BASTION SECURE ENCLAVE // PYTHON RUNTIME v2.6.0")
     print(f"{'='*60}\\n")
     
     print("1. Decrypt & Search Vault")
     print("2. Generate Password (Manual)")
     print("3. Encrypt New Vault (Reset)")
     print("4. Add Entry to Existing Vault")
-    choice = input("\\nSelect Operation [1-4]: ")
+    print("5. Decrypt Bastion File (Locker)")
+    print("6. Encrypt File (Locker)")
+    choice = input("\\nSelect Operation [1-6]: ")
     
     if choice == '1':
         if not CRYPTO_AVAILABLE: return
@@ -146,7 +226,10 @@ def main():
                 if query == 'q': break
                 
                 configs = vault.get('configs', [])
+                locker = vault.get('locker', [])
                 found = 0
+                
+                # Search Passwords
                 for conf in configs:
                     if query in conf['name'].lower() or query in conf['username'].lower():
                         p = ChaosEngine.transmute(
@@ -157,9 +240,18 @@ def main():
                             conf.get('length', 16), 
                             conf.get('useSymbols', True)
                         )
-                        print(f"\\nService:  {conf['name']}")
+                        print(f"\\n[LOGIN] Service: {conf['name']}")
                         print(f"Username: {conf['username']}")
                         print(f"Password: {p}")
+                        found += 1
+                        
+                # Search Files
+                for file in locker:
+                    label = file.get('label', 'Unknown')
+                    if query in label.lower():
+                        print(f"\\n[FILE]  Name: {label}")
+                        print(f"ID:     {file.get('id')}")
+                        print(f"Key:    {file.get('key')}  <-- USE THIS FOR OPTION 5")
                         found += 1
                 
                 if found == 0:
@@ -187,6 +279,7 @@ def main():
         vault = {
             "entropy": entropy,
             "configs": [],
+            "locker": [],
             "version": 1,
             "lastModified": int(time.time() * 1000)
         }
@@ -230,6 +323,27 @@ def main():
             print(f"\\n[+] ENTRY ADDED. HERE IS YOUR NEW VAULT BLOB:\\n")
             print(new_blob)
             
+        except Exception as e:
+            print(f"\\n[!] ERROR: {str(e)}")
+            
+    elif choice == '5':
+        if not CRYPTO_AVAILABLE: return
+        print("\\n--- DECRYPT FILE (LOCKER) ---")
+        file_path = input("Path to .bastion file: ").strip().replace('"', '')
+        key_hex = input("Resonance Key (Hex): ").strip()
+        
+        try:
+            out_path = BastionLocker.decrypt_file(file_path, key_hex)
+            print(f"\\n[+] FILE DECRYPTED: {out_path}")
+        except Exception as e:
+            print(f"\\n[!] ERROR: {str(e)}")
+            
+    elif choice == '6':
+        if not CRYPTO_AVAILABLE: return
+        print("\\n--- ENCRYPT FILE (LOCKER) ---")
+        file_path = input("Path to file: ").strip().replace('"', '')
+        try:
+            BastionLocker.encrypt_file(file_path)
         except Exception as e:
             print(f"\\n[!] ERROR: {str(e)}")
 

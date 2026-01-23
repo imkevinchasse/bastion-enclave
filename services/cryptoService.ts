@@ -7,7 +7,6 @@ import { VaultState, Resonance } from "../types";
 
 const ITERATIONS = 100000;
 const DIGEST = 'SHA-512';
-const ALGO_AES = 'AES-GCM';
 const MAGIC_BYTES = new Uint8Array([0x42, 0x41, 0x53, 0x54, 0x49, 0x4F, 0x4E, 0x31]); // "BASTION1"
 
 // Standard charset definitions for bitwise mapping
@@ -77,13 +76,14 @@ export class ChaosLock {
   }
 
   public static async computeHash(data: Uint8Array): Promise<string> {
-      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      // TS Fix: Cast to any to avoid SharedArrayBuffer mismatch in strict mode
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data as any);
       return this.buf2hex(hashBuffer);
   }
 
   public static async generateKey(): Promise<string> {
       const key = await window.crypto.subtle.generateKey(
-          { name: ALGO_AES, length: 256 },
+          { name: "AES-GCM", length: 256 },
           true,
           ["encrypt", "decrypt"]
       );
@@ -124,12 +124,12 @@ export class ChaosLock {
     return window.crypto.subtle.deriveKey(
       {
         name: "PBKDF2",
-        salt: salt,
+        salt: salt as any, // TS Fix: Cast salt to any
         iterations: ITERATIONS,
         hash: "SHA-256",
       },
       keyMaterial,
-      { name: ALGO_AES, length: 256 },
+      { name: "AES-GCM", length: 256 },
       false,
       ["encrypt", "decrypt"]
     );
@@ -168,10 +168,11 @@ export class ChaosLock {
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const key = await this._deriveKey(password, salt);
     
+    // TS Fix: Cast inputs to any to avoid strict BufferSource checks
     const encrypted = await window.crypto.subtle.encrypt(
-      { name: ALGO_AES, iv: iv },
+      { name: "AES-GCM", iv: iv as any },
       key,
-      data
+      data as any
     );
 
     return this._concat(salt, iv, new Uint8Array(encrypted));
@@ -190,10 +191,11 @@ export class ChaosLock {
 
       const key = await this._deriveKey(password, salt);
 
+      // TS Fix: Cast inputs to any
       const decrypted = await window.crypto.subtle.decrypt(
-        { name: ALGO_AES, iv: iv },
+        { name: "AES-GCM", iv: iv as any },
         key,
-        cipher
+        cipher as any
       );
       
       return new Uint8Array(decrypted);
@@ -233,13 +235,14 @@ export class ResonanceEngine {
 
       const keyBuffer = ChaosLock.hex2buf(newKeyHex);
       const cryptoKey = await window.crypto.subtle.importKey(
-          "raw", keyBuffer, { name: ALGO_AES }, false, ["encrypt"]
+          "raw", keyBuffer, { name: "AES-GCM" }, false, ["encrypt"]
       );
 
+      // TS Fix: Cast inputs to any
       const encrypted = await window.crypto.subtle.encrypt(
-          { name: ALGO_AES, iv: iv },
+          { name: "AES-GCM", iv: iv as any },
           cryptoKey,
-          data
+          data as any
       );
 
       // Pad ID to 36 bytes for fixed header
@@ -280,13 +283,14 @@ export class ResonanceEngine {
 
       const keyBuffer = ChaosLock.hex2buf(resonance.key);
       const cryptoKey = await window.crypto.subtle.importKey(
-        "raw", keyBuffer, { name: ALGO_AES }, false, ["decrypt"]
+        "raw", keyBuffer, { name: "AES-GCM" }, false, ["decrypt"]
       );
 
+      // TS Fix: Cast inputs to any
       const decrypted = await window.crypto.subtle.decrypt(
-          { name: ALGO_AES, iv: iv },
+          { name: "AES-GCM", iv: iv as any },
           cryptoKey,
-          cipher
+          cipher as any
       );
 
       return new Uint8Array(decrypted);
@@ -310,7 +314,7 @@ export class ChaosEngine {
     const bits = await window.crypto.subtle.deriveBits(
       {
         name: 'PBKDF2',
-        salt: enc.encode(salt),
+        salt: enc.encode(salt) as any, // TS Fix: Cast to any
         iterations: ITERATIONS,
         hash: DIGEST
       },

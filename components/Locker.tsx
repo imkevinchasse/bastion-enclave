@@ -73,7 +73,8 @@ export const Locker: React.FC<LockerProps> = ({ entries, onLock, onDelete }) => 
             // Convert FileList to Array
             const files = Array.from(fileList);
             const { blob, name } = await CompressionService.compressFiles(files);
-            fileToProcess = new File([blob], name, { type: 'application/zip' });
+            // TS Fix: Cast BlobPart[] to any to avoid TS2322
+            fileToProcess = new File([blob] as any, name, { type: 'application/zip' });
         } else {
             fileToProcess = fileList[0];
         }
@@ -111,7 +112,8 @@ export const Locker: React.FC<LockerProps> = ({ entries, onLock, onDelete }) => 
                 console.warn("Integrity check mismatch", currentHash, resonance.hash);
             }
 
-            const blob = new Blob([decryptedBytes], { type: resonance.mime });
+            // Fix: Cast the array CONTENT to any to bypass BlobPart checks
+            const blob = new Blob([decryptedBytes as any], { type: resonance.mime });
             const url = URL.createObjectURL(blob);
             setSuccessFile({ name: resonance.label, url });
             setStatus('complete');
@@ -128,7 +130,8 @@ export const Locker: React.FC<LockerProps> = ({ entries, onLock, onDelete }) => 
 
             onLock(resonance);
 
-            const blob = new Blob([artifact], { type: 'application/octet-stream' });
+            // Fix: Cast the array CONTENT to any to bypass BlobPart checks
+            const blob = new Blob([artifact as any], { type: 'application/octet-stream' });
             const url = URL.createObjectURL(blob);
             setSuccessFile({ name: `${fileToProcess.name}.bastion`, url });
             setStatus('complete');
