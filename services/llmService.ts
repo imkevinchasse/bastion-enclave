@@ -35,37 +35,76 @@ export const runLocalAudit = async (password: string): Promise<AuditResult> => {
     throw new Error("Engine not initialized");
   }
 
-  const prompt = `You are a security expert. Audit this password: "${password}".
-  Respond ONLY with valid JSON in this format:
-  {
-    "score": <number 0-100>,
-    "level": "<CRITICAL|LOW|MEDIUM|HIGH>",
-    "suggestions": ["<string>", "<string>"],
-    "analysis": "<short string>"
-  }
-  Do not explain. Just JSON.`;
+  // Highly structured prompt to constrain the small model (1.1B parameters)
+  const prompt = `Analyze the security of this password: "${password}".
+  
+Return a raw JSON object (no markdown, no explanations) matching this schema:
+{
+  "score": number, // 0-100
+  "level": "CRITICAL" | "LOW" | "MEDIUM" | "HIGH",
+  "suggestions": string[], // Array of short security tips
+  "analysis": string // Brief technical summary (max 15 words)
+}
+
+Example Output:
+{
+  "score": 12,
+  "level": "CRITICAL",
+  "suggestions": ["Too short", "Add symbols"],
+  "analysis": "Insufficient entropy for brute-force resistance."
+}`;
 
   try {
     const response = await engine.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 256,
-      temperature: 0.1, // Low temp for deterministic JSON
+      max_tokens: 300,
+      temperature: 0.1, // Near-zero temp for deterministic output
+      response_format: { type: "json_object" } // Enforce JSON mode
     });
 
     const content = response.choices[0].message.content || "{}";
     
-    // Naive cleanup of code blocks if the LLM wraps it
-    const jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
+    // Robust Extraction: TinyLlama might still wrap JSON in text or markdown
+    const start = content.indexOf('{');
+    const end = content.lastIndexOf('}');
     
-    return JSON.parse(jsonStr) as AuditResult;
+    let jsonStr = "{}";
+    if (start !== -1 && end !== -1 && end > start) {
+        jsonStr = content.substring(start, end + 1);
+    }
+    
+    const raw = JSON.parse(jsonStr);
+
+    // Runtime type validation / normalization
+    const safeScore = typeof raw.score === 'number' ? raw.score : 0;
+    
+    let safeLevel = SecurityLevel.LOW;
+    if (Object.values(SecurityLevel).includes(raw.level as SecurityLevel)) {
+        safeLevel = raw.level as SecurityLevel;
+    }
+
+    const safeSuggestions = Array.isArray(raw.suggestions) 
+        ? raw.suggestions.map(String) 
+        : ["Unable to generate specific suggestions."];
+
+    const safeAnalysis = typeof raw.analysis === 'string' 
+        ? raw.analysis 
+        : "Automated analysis completed.";
+
+    return {
+        score: safeScore,
+        level: safeLevel,
+        suggestions: safeSuggestions,
+        analysis: safeAnalysis
+    };
+
   } catch (err) {
     console.error("Local Audit Failed", err);
-    // Fallback if model hallucinates non-JSON
     return {
       score: 0,
       level: SecurityLevel.LOW,
-      suggestions: ["Model output error. Try again."],
-      analysis: "The local AI failed to produce valid JSON."
+      suggestions: ["Neural engine output error.", "Try simplifying the password or retrying."],
+      analysis: "The local AI failed to produce valid JSON structure."
     };
   }
 };

@@ -77,6 +77,13 @@ export class ChaosLock {
     return this.buf2hex(await cryptoAPI.subtle.exportKey("raw", key));
   }
 
+  static getFileIdFromBlob(blob: Uint8Array): string {
+    // Header structure: MAGIC (8) | ID (36) | IV (12) | Ciphertext
+    // ID starts at index 8 and has length 36
+    const idBytes = blob.slice(8, 44);
+    return this.dec(idBytes).trim();
+  }
+
   private static async deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
     const material = await cryptoAPI.subtle.importKey(
       "raw",

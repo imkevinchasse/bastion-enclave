@@ -85,7 +85,10 @@ export const AIAuditor: React.FC = () => {
                         type="password" 
                         placeholder="Paste password for cryptographic analysis..." 
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (result) setResult(null); // Clear stale results when typing
+                        }}
                         className="font-mono text-sm"
                         disabled={llmStatus.status !== 'ready'}
                         icon={<ScanLine size={16} />}
