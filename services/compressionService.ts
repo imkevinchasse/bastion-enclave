@@ -32,7 +32,8 @@ export class CompressionService {
           if (err) {
             reject(err);
           } else {
-            const blob = new Blob([data], { type: 'application/zip' });
+            // Fix: Cast data to any to avoid TS2322 (SharedArrayBuffer mismatch)
+            const blob = new Blob([data as any], { type: 'application/zip' });
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
             resolve({ 
               blob, 

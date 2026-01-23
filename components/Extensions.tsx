@@ -107,7 +107,8 @@ if (isBastion) {
         alert("Generation failed.");
         return;
       }
-      const blob = new Blob([data], { type: 'application/zip' });
+      // Fix: Cast data to any to avoid TS2322 (SharedArrayBuffer mismatch)
+      const blob = new Blob([data as any], { type: 'application/zip' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
