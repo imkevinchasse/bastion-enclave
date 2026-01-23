@@ -323,7 +323,7 @@ IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------
                                                             value={blob}
                                                             onChange={e => setBlob(e.target.value)}
                                                             className={`w-full h-28 bg-black/40 border rounded-xl p-4 text-[10px] font-mono text-emerald-500/80 focus:ring-1 focus:ring-emerald-500/50 transition-all outline-none resize-none placeholder-slate-700 leading-relaxed custom-scrollbar ${isDragging ? 'border-emerald-500 bg-emerald-900/10' : 'border-white/10 focus:border-emerald-500/50'}`}
-                                                            placeholder="> Awaiting Input Stream..."
+                                                            placeholder="&gt; Awaiting Input Stream..."
                                                         />
                                                         {isDragging && (
                                                             <div className="absolute inset-0 flex items-center justify-center bg-slate-900/90 backdrop-blur rounded-xl border-2 border-dashed border-emerald-500 text-emerald-400 font-bold text-sm tracking-widest">
@@ -387,9 +387,9 @@ IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------
                                     </div>
 
                                     <div className="bg-indigo-950/20 p-4 rounded-xl border border-indigo-500/20 text-indigo-200/80 text-xs leading-relaxed backdrop-blur-sm font-mono">
-                                        {'>'} GENERATING 512-BIT ENTROPY POOL<br/>
-                                        {'>'} ESTABLISHING SECURE CONTEXT<br/>
-                                        {'>'} WARNING: NO RECOVERY OPTION
+                                        &gt; GENERATING 512-BIT ENTROPY POOL<br/>
+                                        &gt; ESTABLISHING SECURE CONTEXT<br/>
+                                        &gt; WARNING: NO RECOVERY OPTION
                                     </div>
 
                                     {/* Password Generator */}

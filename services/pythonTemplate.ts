@@ -124,28 +124,58 @@ def main():
     print(" BASTION SECURE ENCLAVE // PYTHON RUNTIME")
     print(f"{'='*60}\\n")
     
-    print("1. Decrypt Vault Blob")
-    print("2. Generate Deterministic Password (Manual Entropy)")
-    print("3. Create / Encrypt New Vault Blob")
+    print("1. Decrypt & Search Vault")
+    print("2. Generate Password (Manual)")
+    print("3. Encrypt New Vault")
     choice = input("\\nSelect Operation [1-3]: ")
     
     if choice == '1':
         if not CRYPTO_AVAILABLE: return
         blob = input("\\nPaste Vault Blob: ").strip()
         pwd = getpass.getpass("Master Password: ")
+        
         try:
             vault = ChaosEngine.decrypt_vault(blob, pwd)
-            print(f"\\n[+] SUCCESS. Entropy: {vault.get('entropy')}")
-            print(f"[+] Found {len(vault.get('configs', []))} logins.")
+            print(f"\\n[+] DECRYPTION SUCCESSFUL. Entropy: {vault.get('entropy')}")
+            
+            # Interactive Search Loop
+            while True:
+                query = input("\\nSearch (Enter to list all, 'q' to quit): ").lower().strip()
+                if query == 'q': break
+                
+                configs = vault.get('configs', [])
+                found = 0
+                for conf in configs:
+                    if query in conf['name'].lower() or query in conf['username'].lower():
+                        p = ChaosEngine.transmute(
+                            vault['entropy'], 
+                            conf['name'], 
+                            conf['username'], 
+                            conf.get('version', 1), 
+                            conf.get('length', 16), 
+                            conf.get('useSymbols', True)
+                        )
+                        print(f"\\nService:  {conf['name']}")
+                        print(f"Username: {conf['username']}")
+                        print(f"Password: {p}")
+                        found += 1
+                
+                if found == 0:
+                    print("No matches found.")
+                else:
+                    print(f"\\nFound {found} results.")
+
         except Exception as e:
-            print(f"\\n[!] ERROR: {str(e)}")
+            print(f"\\n[!] FATAL: {str(e)}")
 
     elif choice == '2':
         entropy = input("\\nEnter Master Entropy (Hex): ").strip()
         service = input("Service Name: ").strip()
         username = input("Username: ").strip()
         length = int(input("Length [16]: ") or "16")
-        print(f"\\nArtifact: {ChaosEngine.transmute(entropy, service, username, length=length)}")
+        
+        pwd = ChaosEngine.transmute(entropy, service, username, length=length)
+        print(f"\\nArtifact: {pwd}")
 
     elif choice == '3':
         if not CRYPTO_AVAILABLE: return

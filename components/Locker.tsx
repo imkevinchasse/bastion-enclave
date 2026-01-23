@@ -5,6 +5,25 @@ import { CompressionService } from '../services/compressionService';
 import { Resonance } from '../types';
 import { FileLock2, Upload, Download, Loader2, ShieldCheck, AlertTriangle, File as FileIcon, Trash2, Key, Fingerprint, Search, Ghost, X, CheckCircle, Archive, Link } from 'lucide-react';
 
+const FileCheckIcon = ({size, className}: any) => (
+    <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width={size} 
+        height={size} 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        className={className}
+    >
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+        <polyline points="14 2 14 8 20 8" />
+        <path d="m9 15 2 2 4-4" />
+    </svg>
+);
+
 interface LockerProps {
   entries: Resonance[];
   onLock: (entry: Resonance) => void;
@@ -289,22 +308,3 @@ export const Locker: React.FC<LockerProps> = ({ entries, onLock, onDelete }) => 
     </div>
   );
 };
-
-const FileCheckIcon = ({size, className}: any) => (
-    <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        width={size} 
-        height={size} 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        strokeWidth="2" 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
-        className={className}
-    >
-        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-        <polyline points="14 2 14 8 20 8" />
-        <path d="m9 15 2 2 4-4" />
-    </svg>
-);

@@ -15,6 +15,19 @@ import { Shield, Key, Boxes, LogOut, Terminal, Copy, Check, Save, Layers, Cpu, D
 import { Button } from './components/Button';
 import { BrandLogo } from './components/BrandLogo';
 
+const NavButton = ({active, onClick, icon, children}: any) => (
+    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 ${active ? 'bg-indigo-500/10 text-indigo-400 shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)] border border-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'}`}>
+        {icon} {children}
+    </button>
+);
+
+const MobileNavBtn = ({active, onClick, icon, label}: any) => (
+    <button onClick={onClick} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all ${active ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300'}`}>
+        {icon}
+        <span className="text-[9px] font-medium">{label}</span>
+    </button>
+);
+
 export default function App() {
   const [vaultState, setVaultState] = useState<VaultState | null>(null);
   const [sessionPassword, setSessionPassword] = useState<string>('');
@@ -403,16 +416,3 @@ HOW TO RESTORE:
     </div>
   );
 }
-
-const NavButton = ({active, onClick, icon, children}: any) => (
-    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 ${active ? 'bg-indigo-500/10 text-indigo-400 shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)] border border-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'}`}>
-        {icon} {children}
-    </button>
-);
-
-const MobileNavBtn = ({active, onClick, icon, label}: any) => (
-    <button onClick={onClick} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all ${active ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300'}`}>
-        {icon}
-        <span className="text-[9px] font-medium">{label}</span>
-    </button>
-);
