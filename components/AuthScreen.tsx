@@ -387,9 +387,9 @@ IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------
                                     </div>
 
                                     <div className="bg-indigo-950/20 p-4 rounded-xl border border-indigo-500/20 text-indigo-200/80 text-xs leading-relaxed backdrop-blur-sm font-mono">
-                                        &gt; GENERATING 512-BIT ENTROPY POOL<br/>
-                                        &gt; ESTABLISHING SECURE CONTEXT<br/>
-                                        &gt; WARNING: NO RECOVERY OPTION
+                                        {'>'} GENERATING 512-BIT ENTROPY POOL<br/>
+                                        {'>'} ESTABLISHING SECURE CONTEXT<br/>
+                                        {'>'} WARNING: NO RECOVERY OPTION
                                     </div>
 
                                     {/* Password Generator */}

@@ -7,6 +7,7 @@ import hmac
 import struct
 import sys
 import getpass
+import time
 from typing import Dict, Any, Optional
 
 # --- CONFIGURATION ---
@@ -14,8 +15,7 @@ ITERATIONS = 100000
 ALGO_HASH = 'sha256'
 MAGIC_BYTES = b'BASTION1'
 
-# --- CRYPTO PRIMITIVES (Dependency Free where possible, using stdlib) ---
-# NOTE: production use requires 'pip install cryptography' for AES-GCM
+# --- CRYPTO PRIMITIVES ---
 try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -24,7 +24,7 @@ try:
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
-    print("WARNING: 'cryptography' library not found. Vault decryption disabled.")
+    print("WARNING: 'cryptography' library not found. Vault operations disabled.")
     print("         Run 'pip install cryptography' to enable full features.")
     print("         Deterministic Password Generator is strictly available below.\\n")
 
@@ -63,24 +63,29 @@ class ChaosEngine:
             raise ValueError("Decryption failed. Invalid password or corrupted blob.")
 
     @staticmethod
+    def encrypt_vault(vault_data: Dict[str, Any], password: str) -> str:
+        if not CRYPTO_AVAILABLE:
+            raise ImportError("Cryptography module required.")
+        
+        salt = os.urandom(16)
+        iv = os.urandom(12)
+        key = ChaosEngine.derive_key(password, salt)
+        aesgcm = AESGCM(key)
+        
+        plaintext = json.dumps(vault_data).encode('utf-8')
+        ciphertext = aesgcm.encrypt(iv, plaintext, None)
+        
+        # Concat: Salt + IV + Ciphertext
+        blob_bytes = salt + iv + ciphertext
+        return base64.b64encode(blob_bytes).decode('utf-8')
+
+    @staticmethod
     def transmute(entropy_hex: str, name: str, username: str, version: int = 1, length: int = 16, use_symbols: bool = True) -> str:
-        # PBKDF2-HMAC-SHA512 Flux Generation matching TypeScript implementation
-        # Note: TS uses WebCrypto deriveBits with PBKDF2. Python's hashlib.pbkdf2_hmac matches this.
-        
         salt_str = f"FORTRESS_V1::{name.lower()}::{username.lower()}::v{version}"
-        master_entropy_bytes = entropy_hex.encode() # Using the hex string as the key material directly? 
-        # In TS: importKey('raw', enc.encode(entropy)...) -> So the key is the bytes of the hex string
+        master_entropy_bytes = entropy_hex.encode()
         
-        # 1. Flux Generation
-        dk = hashlib.pbkdf2_hmac(
-            'sha512',
-            master_entropy_bytes,
-            salt_str.encode(),
-            ITERATIONS,
-            64 # 512 bits = 64 bytes
-        )
-        
-        buffer = list(dk) # Convert to list of ints
+        dk = hashlib.pbkdf2_hmac('sha512', master_entropy_bytes, salt_str.encode(), ITERATIONS, 64)
+        buffer = list(dk)
         
         glyphs = {
             'alpha': 'abcdefghijklmnopqrstuvwxyz',
@@ -94,26 +99,17 @@ class ChaosEngine:
             pool += glyphs['sym']
             
         artifact = []
-        
-        # Forced Characters
         artifact.append(glyphs['alpha'][buffer[0] % len(glyphs['alpha'])])
         artifact.append(glyphs['caps'][buffer[1] % len(glyphs['caps'])])
         artifact.append(glyphs['num'][buffer[2] % len(glyphs['num'])])
-        
-        if use_symbols:
-            artifact.append(glyphs['sym'][buffer[3] % len(glyphs['sym'])])
-        else:
-            artifact.append(glyphs['alpha'][buffer[3] % len(glyphs['alpha'])])
+        artifact.append(glyphs['sym'][buffer[3] % len(glyphs['sym'])] if use_symbols else glyphs['alpha'][buffer[3] % len(glyphs['alpha'])])
             
-        # Fill rest
         for i in range(4, length):
             byte = buffer[i % len(buffer)] ^ buffer[(i + 13) % len(buffer)]
             artifact.append(pool[byte % len(pool)])
             
-        # Scramble
         final_str = "".join(artifact)
         seed_byte = buffer[63]
-        
         arr = list(final_str)
         n = len(arr)
         for i in range(n - 1, 0, -1):
@@ -130,45 +126,41 @@ def main():
     
     print("1. Decrypt Vault Blob")
     print("2. Generate Deterministic Password (Manual Entropy)")
-    choice = input("\\nSelect Operation [1-2]: ")
+    print("3. Create / Encrypt New Vault Blob")
+    choice = input("\\nSelect Operation [1-3]: ")
     
     if choice == '1':
-        if not CRYPTO_AVAILABLE:
-            print("Error: Cryptography module missing.")
-            return
-
+        if not CRYPTO_AVAILABLE: return
         blob = input("\\nPaste Vault Blob: ").strip()
         pwd = getpass.getpass("Master Password: ")
-        
         try:
             vault = ChaosEngine.decrypt_vault(blob, pwd)
-            print(f"\\n[+] DECRYPTION SUCCESSFUL")
-            print(f"[+] Entropy Pool: {vault.get('entropy')}")
-            print(f"[+] Configs Found: {len(vault.get('configs', []))}")
-            
-            print("\\n--- LOGINS ---")
-            for conf in vault.get('configs', []):
-                p = ChaosEngine.transmute(
-                    vault['entropy'], 
-                    conf['name'], 
-                    conf['username'], 
-                    conf.get('version', 1), 
-                    conf.get('length', 16), 
-                    conf.get('useSymbols', True)
-                )
-                print(f"Service: {conf['name']} | User: {conf['username']} | Pass: {p}")
-                
+            print(f"\\n[+] SUCCESS. Entropy: {vault.get('entropy')}")
+            print(f"[+] Found {len(vault.get('configs', []))} logins.")
         except Exception as e:
-            print(f"\\n[!] FATAL: {str(e)}")
+            print(f"\\n[!] ERROR: {str(e)}")
 
     elif choice == '2':
-        entropy = input("\\nEnter Master Entropy (Hex String): ").strip()
+        entropy = input("\\nEnter Master Entropy (Hex): ").strip()
         service = input("Service Name: ").strip()
         username = input("Username: ").strip()
         length = int(input("Length [16]: ") or "16")
-        
-        pwd = ChaosEngine.transmute(entropy, service, username, length=length)
-        print(f"\\nArtifact: {pwd}")
+        print(f"\\nArtifact: {ChaosEngine.transmute(entropy, service, username, length=length)}")
+
+    elif choice == '3':
+        if not CRYPTO_AVAILABLE: return
+        print("\\n--- NEW VAULT CREATION ---")
+        pwd = getpass.getpass("Set Master Password: ")
+        entropy = os.urandom(32).hex()
+        vault = {
+            "entropy": entropy,
+            "configs": [],
+            "version": 1,
+            "lastModified": int(time.time() * 1000)
+        }
+        blob = ChaosEngine.encrypt_vault(vault, pwd)
+        print(f"\\n[+] NEW VAULT GENERATED. SAVE THIS BLOB SECURELY:\\n")
+        print(blob)
 
 if __name__ == "__main__":
     main()
