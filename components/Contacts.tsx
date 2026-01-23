@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Contact } from '../types';
 import { Button } from './Button';
 import { Input } from './Input';
+import { ChaosLock } from '../services/cryptoService';
 import { Plus, Save, Trash2, Search, Mail, Phone, MapPin, X, Users, User, Check, Edit2 } from 'lucide-react';
 
 interface ContactsProps {
@@ -39,7 +40,7 @@ export const Contacts: React.FC<ContactsProps> = ({ contacts, onSave, onDelete }
 
   const handleCreate = () => {
     const newContact: Contact = {
-      id: crypto.randomUUID(),
+      id: ChaosLock.getUUID(),
       name: '',
       email: '',
       phone: '',

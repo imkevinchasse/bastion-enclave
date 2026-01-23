@@ -3,7 +3,8 @@ import { TopNav } from './TopNav';
 import { LandingFeatures } from './LandingFeatures';
 import { Button } from './Button';
 import { BrandLogo } from './BrandLogo';
-import { ArrowRight, BookOpen, ShieldCheck, ServerOff, Scaling, Zap, Lock, HeartHandshake, Code2, Database, HardDrive, FileJson, Binary, CheckCircle, XCircle, AlertTriangle, Shield } from 'lucide-react';
+import { PYTHON_BASTION_SCRIPT } from '../services/pythonTemplate';
+import { ArrowRight, BookOpen, ShieldCheck, ServerOff, Scaling, Zap, Lock, HeartHandshake, Code2, Database, HardDrive, FileJson, Binary, CheckCircle, XCircle, AlertTriangle, Shield, Terminal } from 'lucide-react';
 
 interface LandingPageProps {
   onNavigate: (page: 'landing' | 'auth' | 'news' | 'documents') => void;
@@ -90,6 +91,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const [activeStage, setActiveStage] = useState<'input' | 'process' | 'storage'>('input');
   
   const currentDemo = DEMO_STAGES[activeStage];
+
+  const downloadPythonEngine = () => {
+      const blob = new Blob([PYTHON_BASTION_SCRIPT], { type: 'text/x-python' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bastion.py';
+      a.click();
+      URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-slate-950 font-sans text-slate-200">
@@ -336,9 +347,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                         <p className="text-slate-400">Neural Auditor runs on the edge (WebGPU), scaling infinitely without backend GPU costs.</p>
                     </div>
                     <div className="bg-slate-900/50 p-8 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition-colors">
-                        <Zap size={32} className="text-emerald-400 mb-6" />
-                        <h3 className="text-xl font-bold text-white mb-3">Future Roadmap</h3>
-                        <p className="text-slate-400">Multi-device mesh networking, advanced backup kits, and enterprise team management.</p>
+                        <Terminal size={32} className="text-emerald-400 mb-6" />
+                        <h3 className="text-xl font-bold text-white mb-3">Python Core Engine</h3>
+                        <p className="text-slate-400">Download the Sovereign Python Script to decrypt your vault and generate passwords completely offline.</p>
                     </div>
                 </div>
             </div>
@@ -361,8 +372,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                         <Button size="lg" className="h-16 px-10 text-xl bg-white text-slate-950 hover:bg-slate-200 hover:text-slate-900 shadow-xl border-0">
                             Support Bastion
                         </Button>
+                        <Button size="lg" variant="secondary" className="h-16 px-10 text-xl" onClick={downloadPythonEngine}>
+                            <Terminal size={20} className="mr-2" /> Download Python Engine
+                        </Button>
                         <Button size="lg" variant="secondary" className="h-16 px-10 text-xl" onClick={() => onNavigate('auth')}>
-                            Join Early Access
+                            Launch Web App
                         </Button>
                     </div>
                 </div>

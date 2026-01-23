@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Note } from '../types';
 import { Button } from './Button';
+import { ChaosLock } from '../services/cryptoService';
 import { Plus, Save, Trash2, Search, Book, Clock, AlertTriangle, FileText } from 'lucide-react';
 
 interface NotesProps {
@@ -35,7 +36,7 @@ export const Notes: React.FC<NotesProps> = ({ notes, onSave, onDelete }) => {
 
   const handleCreate = () => {
     const newNote: Note = {
-      id: crypto.randomUUID(),
+      id: ChaosLock.getUUID(),
       title: 'New Note',
       content: '',
       updatedAt: Date.now()

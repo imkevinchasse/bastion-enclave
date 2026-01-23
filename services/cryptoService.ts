@@ -24,6 +24,22 @@ const GLYPHS = {
  */
 export class ChaosLock {
   
+  /**
+   * Safe UUID Generator that works in environments where crypto.randomUUID
+   * might not be strictly typed or available in the target ES version.
+   */
+  public static getUUID(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      // @ts-ignore - TS might complain depending on lib target
+      return crypto.randomUUID();
+    }
+    // Fallback v4 UUID generator
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
   public static _enc(str: string): Uint8Array {
     return new TextEncoder().encode(str);
   }
@@ -210,7 +226,7 @@ export class ResonanceEngine {
     artifact: Uint8Array;
     resonance: Resonance;
   }> {
-      const newId = crypto.randomUUID();
+      const newId = ChaosLock.getUUID();
       const newKeyHex = await ChaosLock.generateKey(); // RANDOM ENTROPY
       const iv = window.crypto.getRandomValues(new Uint8Array(12)); // RANDOM IV
       const integrityHash = await ChaosLock.computeHash(data);

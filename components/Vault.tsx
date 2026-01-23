@@ -3,7 +3,7 @@ import { VaultConfig } from '../types';
 import { Input } from './Input';
 import { Button } from './Button';
 import { Generator } from './Generator';
-import { ChaosEngine } from '../services/cryptoService';
+import { ChaosEngine, ChaosLock } from '../services/cryptoService';
 import { Trash2, Copy, Eye, EyeOff, Search, Plus, RotateCw, Wallet, Globe, ArrowLeft, Dices, ShieldCheck } from 'lucide-react';
 
 interface VaultProps {
@@ -36,7 +36,7 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
     if (!newConfig.name || !newConfig.username) return;
 
     onAddConfig({
-        id: crypto.randomUUID(),
+        id: ChaosLock.getUUID(),
         name: newConfig.name,
         username: newConfig.username,
         length: newConfig.length || 16,
