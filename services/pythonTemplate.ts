@@ -8,6 +8,7 @@ import struct
 import sys
 import getpass
 import time
+import uuid
 from typing import Dict, Any, Optional
 
 # --- CONFIGURATION ---
@@ -121,13 +122,14 @@ class ChaosEngine:
 
 def main():
     print(f"\\n{'='*60}")
-    print(" BASTION SECURE ENCLAVE // PYTHON RUNTIME")
+    print(" BASTION SECURE ENCLAVE // PYTHON RUNTIME v2.0")
     print(f"{'='*60}\\n")
     
     print("1. Decrypt & Search Vault")
     print("2. Generate Password (Manual)")
-    print("3. Encrypt New Vault")
-    choice = input("\\nSelect Operation [1-3]: ")
+    print("3. Encrypt New Vault (Reset)")
+    print("4. Add Entry to Existing Vault")
+    choice = input("\\nSelect Operation [1-4]: ")
     
     if choice == '1':
         if not CRYPTO_AVAILABLE: return
@@ -191,6 +193,45 @@ def main():
         blob = ChaosEngine.encrypt_vault(vault, pwd)
         print(f"\\n[+] NEW VAULT GENERATED. SAVE THIS BLOB SECURELY:\\n")
         print(blob)
+
+    elif choice == '4':
+        if not CRYPTO_AVAILABLE: return
+        print("\\n--- ADD ENTRY TO VAULT ---")
+        blob = input("Paste Existing Vault Blob: ").strip()
+        pwd = getpass.getpass("Master Password: ")
+        
+        try:
+            vault = ChaosEngine.decrypt_vault(blob, pwd)
+            print(f"[+] Vault Unlocked. Entries: {len(vault.get('configs', []))}")
+            
+            name = input("New Service Name: ").strip()
+            username = input("New Username: ").strip()
+            
+            if not name or not username:
+                print("[!] Error: Name and Username required.")
+                return
+
+            new_config = {
+                "id": str(uuid.uuid4()),
+                "name": name,
+                "username": username,
+                "version": 1,
+                "length": 16,
+                "useSymbols": True,
+                "category": "login",
+                "updatedAt": int(time.time() * 1000)
+            }
+            
+            vault.setdefault('configs', []).append(new_config)
+            vault['version'] = vault.get('version', 0) + 1
+            vault['lastModified'] = int(time.time() * 1000)
+            
+            new_blob = ChaosEngine.encrypt_vault(vault, pwd)
+            print(f"\\n[+] ENTRY ADDED. HERE IS YOUR NEW VAULT BLOB:\\n")
+            print(new_blob)
+            
+        except Exception as e:
+            print(f"\\n[!] ERROR: {str(e)}")
 
 if __name__ == "__main__":
     main()
