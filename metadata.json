@@ -1,0 +1,5 @@
+{
+  "name": "Bastion",
+  "description": "A zero-knowledge, client-side encrypted password vault and generator with AI-powered security auditing.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,310 @@
+import React, { useState, useRef } from 'react';
+import { Button } from './Button';
+import { ChaosLock, ResonanceEngine } from '../services/cryptoService';
+import { CompressionService } from '../services/compressionService';
+import { Resonance } from '../types';
+import { FileLock2, Upload, Download, Loader2, ShieldCheck, AlertTriangle, File as FileIcon, Trash2, Key, Fingerprint, Search, Ghost, X, CheckCircle, Archive, Link } from 'lucide-react';
+
+interface LockerProps {
+  entries: Resonance[];
+  onLock: (entry: Resonance) => void;
+  onDelete: (id: string) => void;
+}
+
+export const Locker: React.FC<LockerProps> = ({ entries, onLock, onDelete }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState<'idle' | 'compressing' | 'binding' | 'resolving' | 'complete'>('idle');
+  const [successFile, setSuccessFile] = useState<{name: string, url: string} | null>(null);
+  const [search, setSearch] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Deletion Safety State
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Filter phantom instances with SAFETY CHECK for legacy data
+  const filteredEntries = entries
+    .filter(e => e && typeof e.label === 'string' && e.label.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const handleReset = () => {
+    setSuccessFile(null);
+    setError('');
+    setStatus('idle');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const processFileOrFiles = async (fileList: FileList) => {
+    setIsProcessing(true);
+    setError('');
+    setSuccessFile(null);
+    
+    try {
+        let fileToProcess: File;
+
+        // 1. Compression Handling
+        if (fileList.length > 1) {
+            setStatus('compressing');
+            // Convert FileList to Array
+            const files = Array.from(fileList);
+            const { blob, name } = await CompressionService.compressFiles(files);
+            fileToProcess = new File([blob], name, { type: 'application/zip' });
+        } else {
+            fileToProcess = fileList[0];
+        }
+
+        // 2. Encryption/Decryption Handing
+        const buffer = await fileToProcess.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+
+        // CHECK HEADER to determine if we are Binding (Locking) or Resolving (Unlocking)
+        let isBastionFile = false;
+        try {
+            // Check magic bytes "BASTION1"
+            const header = bytes.slice(0, 8);
+            const decoder = new TextDecoder();
+            if (decoder.decode(header) === "BASTION1") {
+                isBastionFile = true;
+            }
+        } catch(e) {}
+
+        if (isBastionFile) {
+            // UNLOCK PROCESS (RESOLVE)
+            setStatus('resolving');
+            const fileId = ChaosLock.getFileIdFromBlob(bytes);
+            const resonance = entries.find(e => e.id === fileId);
+            
+            if (!resonance) {
+                throw new Error("Resonance Broken: The key for this file is not in your current vault.");
+            }
+
+            const decryptedBytes = await ResonanceEngine.resolve(bytes, resonance);
+            
+            // Integrity Check
+            const currentHash = await ChaosLock.computeHash(decryptedBytes);
+            if (currentHash !== resonance.hash) {
+                console.warn("Integrity check mismatch", currentHash, resonance.hash);
+            }
+
+            const blob = new Blob([decryptedBytes], { type: resonance.mime });
+            const url = URL.createObjectURL(blob);
+            setSuccessFile({ name: resonance.label, url });
+            setStatus('complete');
+
+        } else {
+            // LOCK PROCESS (BIND)
+            setStatus('binding');
+            
+            const { artifact, resonance } = await ResonanceEngine.bind(
+                bytes, 
+                fileToProcess.name, 
+                fileToProcess.type || 'application/octet-stream'
+            );
+
+            onLock(resonance);
+
+            const blob = new Blob([artifact], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            setSuccessFile({ name: `${fileToProcess.name}.bastion`, url });
+            setStatus('complete');
+        }
+
+    } catch (e: any) {
+        console.error(e);
+        setError(e.message || "Operation failed");
+        setStatus('idle');
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+        processFileOrFiles(e.target.files);
+    }
+  };
+
+  const handleDeleteRequest = (id: string) => {
+      if (confirmDeleteId === id) {
+          onDelete(id);
+          setConfirmDeleteId(null);
+      } else {
+          setConfirmDeleteId(id);
+          setTimeout(() => setConfirmDeleteId(prev => prev === id ? null : prev), 3000);
+      }
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-12rem)] min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+        
+        {/* LEFT: Phantom Registry */}
+        <div className="w-full lg:w-1/3 flex flex-col gap-4">
+             <div className="flex justify-between items-end mb-2">
+                 <div>
+                    <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                        <Ghost size={24} className="text-indigo-400" /> Resonance Registry
+                    </h2>
+                    <p className="text-slate-400 text-xs">Active Cryptographic Bindings</p>
+                 </div>
+                 <div className="text-[10px] font-mono text-slate-500 uppercase">{entries.length} Keys Active</div>
+             </div>
+
+             <div className="relative">
+                <input 
+                    className="w-full bg-slate-900/50 border border-slate-700/50 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all outline-none"
+                    placeholder="Search bindings..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar bg-slate-900/20 rounded-xl border border-white/5 p-2">
+                {filteredEntries.length === 0 ? (
+                    <div className="text-center py-12 opacity-50">
+                        <Fingerprint className="mx-auto text-slate-600 mb-2" size={32} />
+                        <p className="text-slate-500 text-xs">No active resonances.</p>
+                    </div>
+                ) : (
+                    filteredEntries.map(entry => (
+                        <div 
+                            key={entry.id} 
+                            className={`p-3 rounded-xl flex justify-between items-center group transition-all relative overflow-hidden ${confirmDeleteId === entry.id ? 'bg-red-900/20 border border-red-500/50' : 'bg-slate-900/80 border border-white/5 hover:border-indigo-500/30'}`}
+                        >
+                            <div className="min-w-0 z-10">
+                                <div className={`font-bold text-sm truncate flex items-center gap-2 ${confirmDeleteId === entry.id ? 'text-red-300' : 'text-slate-200'}`}>
+                                    {entry.label.endsWith('.zip') ? <Archive size={12} className="text-amber-500 shrink-0"/> : <Link size={12} className={confirmDeleteId === entry.id ? 'text-red-500' : 'text-emerald-500 shrink-0'} />}
+                                    {entry.label}
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono mt-0.5 flex gap-2">
+                                    <span>{formatSize(entry.size)}</span>
+                                    <span>•</span>
+                                    <span>{new Date(entry.timestamp).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => handleDeleteRequest(entry.id)}
+                                className={`z-10 p-2 rounded-lg transition-all flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${confirmDeleteId === entry.id ? 'bg-red-500 text-white w-24 justify-center shadow-lg' : 'text-slate-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100'}`}
+                                title="Sever Resonance (Destroys File Access)"
+                            >
+                                {confirmDeleteId === entry.id ? (
+                                    <>SEVER LINK?</>
+                                ) : (
+                                    <Trash2 size={14} />
+                                )}
+                            </button>
+
+                             {/* Warning background pattern for confirmation */}
+                             {confirmDeleteId === entry.id && (
+                                 <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(220,38,38,0.05)_10px,rgba(220,38,38,0.05)_20px)] pointer-events-none" />
+                             )}
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+
+        {/* RIGHT: Processing Core */}
+        <div className="w-full lg:w-2/3 flex flex-col gap-4">
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-white/5 rounded-2xl flex-1 relative overflow-hidden flex flex-col p-8">
+                
+                {/* Status Overlay */}
+                <div className="flex justify-between items-start mb-8">
+                     <div>
+                        <h3 className="text-xl font-bold text-white mb-1">Cryptographic Core</h3>
+                        <p className="text-sm text-slate-400">Drag & Drop assets to Bind or Resolve. <span className="text-amber-400/80">Keys are unique per file.</span></p>
+                     </div>
+                     {status !== 'idle' && (
+                         <div className={`bg-slate-950 border border-white/10 px-3 py-1 rounded-full text-[10px] font-mono uppercase animate-pulse flex items-center gap-2 ${status === 'compressing' ? 'text-amber-400' : 'text-indigo-400'}`}>
+                             <div className={`w-1.5 h-1.5 rounded-full ${status === 'compressing' ? 'bg-amber-500' : 'bg-indigo-500'}`} /> {status}
+                         </div>
+                     )}
+                </div>
+
+                {successFile ? (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-in zoom-in-95 duration-500">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full animate-pulse" />
+                            <div className="w-24 h-24 rounded-2xl bg-slate-900 border border-emerald-500/50 flex items-center justify-center relative z-10 shadow-2xl">
+                                <FileCheckIcon size={48} className="text-emerald-400" />
+                            </div>
+                        </div>
+                        
+                        <div className="text-center space-y-2">
+                            <h2 className="text-2xl font-bold text-white">{status === 'complete' ? 'Operation Successful' : 'Ready'}</h2>
+                            <p className="text-slate-400 text-sm font-mono">{successFile.name}</p>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <Button variant="secondary" onClick={handleReset}>Process Another</Button>
+                            <a href={successFile.url} download={successFile.name}>
+                                <Button className="bg-emerald-600 hover:bg-emerald-500 text-white border-0 shadow-lg shadow-emerald-500/20">
+                                    <Download size={18} /> Download
+                                </Button>
+                            </a>
+                        </div>
+                    </div>
+                ) : error ? (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-in zoom-in-95 duration-300">
+                         <div className="w-24 h-24 rounded-2xl bg-red-900/10 border border-red-500/30 flex items-center justify-center text-red-400">
+                             <AlertTriangle size={48} />
+                         </div>
+                         <div className="text-center max-w-md">
+                             <h2 className="text-xl font-bold text-white mb-2">Resonance Failed</h2>
+                             <p className="text-red-400 text-sm">{error}</p>
+                         </div>
+                         <Button variant="secondary" onClick={handleReset}>Try Again</Button>
+                    </div>
+                ) : (
+                    <div className="flex-1 border-2 border-dashed border-slate-700/50 rounded-xl flex flex-col items-center justify-center gap-4 group hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all relative">
+                        <input 
+                            ref={fileInputRef}
+                            type="file" 
+                            multiple
+                            onChange={handleFileChange}
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                        />
+                        <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                            {isProcessing ? (
+                                <Loader2 className="animate-spin text-indigo-400" size={32} />
+                            ) : (
+                                <Upload className="text-slate-400 group-hover:text-indigo-400" size={32} />
+                            )}
+                        </div>
+                        <div className="text-center">
+                            <p className="text-lg font-bold text-slate-300 group-hover:text-white transition-colors">Drop file(s) here</p>
+                            <p className="text-xs text-slate-500 mt-1">Multi-file drop will create an encrypted ZIP archive</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    </div>
+  );
+};
+
+const FileCheckIcon = ({size, className}: any) => (
+    <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width={size} 
+        height={size} 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        className={className}
+    >
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+        <polyline points="14 2 14 8 20 8" />
+        <path d="m9 15 2 2 4-4" />
+    </svg>
+);
