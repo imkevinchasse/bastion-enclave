@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { TopNav } from './TopNav';
-import { Lock, Unlock, FileKey2, RefreshCw, Copy, Check, Eye, EyeOff, ShieldAlert, KeyRound, FileDown, HelpCircle, Upload, Zap, PlugZap, Hexagon, HardDrive, Trash2 } from 'lucide-react';
+import { RefreshCw, Copy, Check, Eye, EyeOff, ShieldAlert, KeyRound, Upload, Trash2, LogIn, UserPlus, HelpCircle, HardDrive, FileText, Scan, Fingerprint, Info } from 'lucide-react';
 import { ChaosLock, ChaosEngine } from '../services/cryptoService';
 import { VaultState, PublicPage } from '../types';
 
@@ -25,52 +25,33 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
   const [isDragging, setIsDragging] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   
-  // Extension & Local Storage State
-  const [extensionData, setExtensionData] = useState<{blob: string, pwd: string} | null>(null);
+  // Local Storage State
   const [localVaultFound, setLocalVaultFound] = useState(false);
 
+  // Input Validation State
+  const isSeed = /^[0-9a-fA-F]{64}$/i.test(blob.trim());
+  const isBackup = blob.trim().includes("BASTION SECURE VAULT");
+
   useEffect(() => {
-      const handleMessage = (event: MessageEvent) => {
-          if (event.data.type === 'BASTION_RESTORE' && event.data.payload) {
-              setExtensionData(event.data.payload);
-          }
-      };
-      window.addEventListener('message', handleMessage);
-      
       // Check Local Storage for existing vault
       const storedBlob = localStorage.getItem('BASTION_VAULT');
       if (storedBlob) {
           setBlob(storedBlob);
           setLocalVaultFound(true);
+          setTab('open'); // Default to open if found
+      } else {
+          setTab('create'); // Default to create if new
       }
-
-      return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const handleExtensionRestore = async () => {
-      if (!extensionData) return;
-      setLoading(true);
-      try {
-          const state = await ChaosLock.unpack(extensionData.blob.trim(), extensionData.pwd);
-          // Compatibility checks
-          if (!state.notes) state.notes = [];
-          if (!state.locker) state.locker = [];
-          if (!state.contacts) state.contacts = [];
-          onOpen(state, extensionData.blob.trim(), extensionData.pwd);
-      } catch (e) {
-          setError("Extension data invalid or corrupted.");
-      } finally {
-          setLoading(false);
-      }
-  };
-
   const clearLocalVault = () => {
-      if (confirm("Are you sure? This will remove the locally cached vault. You will need your Backup Kit to log in again.")) {
-          // Wipe entire state
+      if (confirm("Remove this vault from this browser? You will need your Backup File to log in again.")) {
           localStorage.removeItem('BASTION_VAULT');
-          localStorage.removeItem('BASTION_MAX_VERSION'); // Sentinel Reset
+          localStorage.removeItem('BASTION_MAX_VERSION');
           setBlob('');
           setLocalVaultFound(false);
+          setTab('create');
+          setPassword('');
       }
   };
 
@@ -84,8 +65,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
 
   useEffect(() => {
     if (tab === 'create') {
-        setPassword(generateStrongPassword());
-        setShowPassword(true);
+        if (!password) {
+            setPassword(generateStrongPassword());
+            setShowPassword(true);
+        }
     } else {
         setPassword('');
         setShowPassword(false);
@@ -103,33 +86,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
       setTimeout(() => setCopiedPassword(false), 2000);
   };
 
-  const generateRescueKit = (pwd: string, token: string) => {
-      return `BASTION SECURE VAULT - EMERGENCY RESCUE KIT\n==================================================\nCREATED: ${new Date().toLocaleString()}\n\nIMPORTANT: PRINT THIS PAGE AND KEEP IT SAFE.
-IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------------------------------\n1. MASTER PASSWORD\n--------------------------------------------------\n${pwd}\n\n--------------------------------------------------\n2. VAULT TOKEN (The "Data")\n--------------------------------------------------\n${token}\n\n==================================================`;
-  };
-
-  const handleDownloadRescueKit = async () => {
-      const entropy = ChaosEngine.generateEntropy();
-      const initialState: VaultState = { 
-          entropy, 
-          configs: [], 
-          notes: [], 
-          contacts: [], 
-          locker: [],
-          version: 1,
-          lastModified: Date.now()
-      };
-      const tempBlob = await ChaosLock.pack(initialState, password);
-      const content = generateRescueKit(password, tempBlob);
-      const blobObj = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blobObj);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Bastion-Rescue-Kit-${new Date().toISOString().slice(0,10)}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-  };
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 8) {
@@ -137,6 +93,8 @@ IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------
         return;
     }
     setLoading(true);
+    
+    // Create new vault state in memory
     const entropy = ChaosEngine.generateEntropy();
     const initialState: VaultState = { 
         entropy, 
@@ -147,11 +105,13 @@ IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------
         version: 1,
         lastModified: Date.now()
     };
+
     try {
+        // Encrypt and pass up to App.tsx (which handles saving to localStorage)
         const newBlob = await ChaosLock.pack(initialState, password);
         onOpen(initialState, newBlob, password);
     } catch (e) {
-        setError("Initialization failed");
+        setError("Failed to create vault.");
     } finally {
         setLoading(false);
     }
@@ -159,21 +119,42 @@ IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------
 
   const handleOpen = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!blob) {
-        setError("Please paste your Vault Token or drop your Rescue Kit.");
+    const inputData = blob.trim();
+
+    if (!inputData) {
+        setError("Please provide a Backup File or Seed.");
         return;
     }
     setLoading(true);
     setError('');
+
     try {
-        const state = await ChaosLock.unpack(blob.trim(), password);
-        if (!state.notes) state.notes = [];
-        if (!state.locker) state.locker = [];
-        if (!state.contacts) state.contacts = [];
-        onOpen(state, blob.trim(), password);
+        // DETECT INPUT TYPE (Seed recovery vs Blob recovery)
+        const isHexSeed = /^[0-9a-fA-F]{64}$/.test(inputData);
+
+        if (isHexSeed) {
+            // Identity Recovery Mode
+            const recoveredState: VaultState = {
+                entropy: inputData.toLowerCase(),
+                configs: [], 
+                notes: [], 
+                contacts: [], 
+                locker: [],
+                version: 1,
+                lastModified: Date.now()
+            };
+            const newBlob = await ChaosLock.pack(recoveredState, password || 'temp');
+            onOpen(recoveredState, newBlob, password);
+        } else {
+            // Standard File Mode
+            const state = await ChaosLock.unpack(inputData, password);
+            onOpen(state, inputData, password);
+        }
+
     } catch (e) {
-        await new Promise(r => setTimeout(r, 1000));
-        setError("Decryption failed. Wrong password or invalid token.");
+        // Artificially delay error to prevent timing attacks
+        await new Promise(r => setTimeout(r, 800));
+        setError("Incorrect password or invalid file.");
     } finally {
         setLoading(false);
     }
@@ -186,19 +167,21 @@ IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------
       if (file) {
           try {
               const text = await file.text();
+              // Try to parse our custom rescue kit format, or just take the raw text
               if (text.includes("BASTION SECURE VAULT")) {
-                   const tokenPart = text.split("2. VAULT TOKEN")[1];
-                   if (tokenPart) setBlob(tokenPart.split("--------------------------------------------------")[1]?.trim());
-                   const passPart = text.split("1. MASTER PASSWORD")[1];
-                   if (passPart) {
-                       setPassword(passPart.split("--------------------------------------------------")[1]?.trim());
-                       setShowPassword(true);
+                   // Try extract token
+                   const tokenMatch = text.match(/\[2\] VAULT TOKEN[^\n]*\n-+\n([A-Za-z0-9+/=]+)/m);
+                   if (tokenMatch && tokenMatch[1]) setBlob(tokenMatch[1].trim());
+                   
+                   // Try extract seed if token missing
+                   if (!tokenMatch) {
+                        const seedMatch = text.match(/\[3\] MASTER SEED[^\n]*\n-+\n([0-9a-fA-F]{64})/m);
+                        if (seedMatch && seedMatch[1]) setBlob(seedMatch[1].trim());
                    }
               } else {
                   setBlob(text.trim());
               }
-              // If we drop a file, we treat it as found
-              setLocalVaultFound(true);
+              setLocalVaultFound(true); // Treat dropped file as "found vault" context
           } catch(err) {
               setError("Could not read file.");
           }
@@ -208,257 +191,217 @@ IF YOU LOSE THIS FILE, YOU LOSE YOUR DATA FOREVER.\n\n--------------------------
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-slate-950 font-sans text-slate-200">
         
-        {/* Dynamic Space Background */}
+        {/* Background Effects */}
         <div className="fixed inset-0 z-0 pointer-events-none">
             <div className="absolute inset-0 bg-grid opacity-20"></div>
-            <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] bg-indigo-900/20 rounded-full blur-[120px] animate-pulse"></div>
-            <div className="absolute top-[40%] right-[0%] w-[50%] h-[60%] bg-emerald-900/10 rounded-full blur-[100px]"></div>
-            <div className="absolute inset-0 opacity-30" style={{background: 'radial-gradient(circle at center, transparent 0%, #020617 100%)'}}></div>
+            <div className="absolute top-[20%] right-[10%] w-[60%] h-[60%] bg-indigo-900/10 rounded-full blur-[120px] animate-pulse"></div>
         </div>
 
-        {/* Global Nav */}
         <TopNav active="auth" onNavigate={onNavigate} />
 
-        {/* Content Wrapper */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center max-w-[1600px] mx-auto w-full p-4 pt-24">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center max-w-md mx-auto w-full p-4 pt-24">
             
-            <div className="w-full max-w-md flex flex-col items-center justify-center animate-in fade-in slide-in-from-bottom-8 duration-500">
-                
-                {/* 3D Visual Decorator (CSS) */}
-                <div className="relative w-full">
-                    {/* Glowing Ring */}
-                    <div className="absolute -inset-1 bg-gradient-to-br from-indigo-500 via-violet-500 to-emerald-500 rounded-2xl opacity-30 blur-xl animate-pulse"></div>
+            <div className="w-full relative">
+                {/* Card Container */}
+                <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
                     
-                    {/* Glass Container */}
-                    <div className="relative bg-slate-900/60 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
-                        
-                        {/* Holographic Header */}
-                        <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-white/50 to-emerald-500 w-full"></div>
-                        
-                        {/* Tabs */}
-                        <div className="flex border-b border-white/5 bg-black/20">
-                            <button 
-                                onClick={() => {setTab('open'); setError('');}}
-                                className={`flex-1 py-5 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all relative ${tab === 'open' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                <Unlock size={14} className={tab === 'open' ? 'text-emerald-400' : ''}/> Access
-                                {tab === 'open' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"></div>}
-                            </button>
-                            <button 
-                                onClick={() => {setTab('create'); setError('');}}
-                                className={`flex-1 py-5 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all relative ${tab === 'create' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                <Hexagon size={14} className={tab === 'create' ? 'text-indigo-400' : ''}/> Initialize
-                                {tab === 'create' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 shadow-[0_-2px_10px_rgba(99,102,241,0.5)]"></div>}
-                            </button>
-                        </div>
+                    {/* Top Tabs */}
+                    <div className="flex border-b border-white/5 bg-black/20">
+                        <button 
+                            onClick={() => {setTab('open'); setError('');}}
+                            className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${tab === 'open' ? 'text-white bg-white/5' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <LogIn size={16} /> Open Vault
+                        </button>
+                        <button 
+                            onClick={() => {setTab('create'); setError('');}}
+                            className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${tab === 'create' ? 'text-white bg-white/5' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <UserPlus size={16} /> New Vault
+                        </button>
+                    </div>
 
-                        <div className="p-8">
-                             {/* Help Toggle */}
-                             <button onClick={() => setShowHelp(!showHelp)} className="absolute top-4 right-4 text-slate-600 hover:text-white transition-colors z-20">
-                                <HelpCircle size={18} />
-                            </button>
+                    <div className="p-8">
+                        {/* Help Toggle */}
+                        <button onClick={() => setShowHelp(!showHelp)} className="absolute top-16 right-4 text-slate-600 hover:text-white transition-colors">
+                            <HelpCircle size={18} />
+                        </button>
 
-                            {/* Help Overlay */}
-                            {showHelp && (
-                                <div className="absolute inset-0 z-30 bg-slate-950/95 backdrop-blur-xl p-8 flex flex-col justify-center animate-in fade-in zoom-in-95">
-                                    <h3 className="font-bold text-white mb-6 text-lg">System Manual</h3>
-                                    <ul className="space-y-4 text-sm text-slate-300">
-                                        <li className="flex gap-3"><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-2 shrink-0"/><span>Bastion is a stateless vault. We do not store your data.</span></li>
-                                        <li className="flex gap-3"><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-2 shrink-0"/><span>The <strong>Rescue Kit</strong> is your only backup. It contains your encrypted payload.</span></li>
-                                        <li className="flex gap-3"><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-2 shrink-0"/><span>Drag the kit file into the terminal to login instantly.</span></li>
-                                    </ul>
-                                    <Button size="sm" variant="secondary" onClick={() => setShowHelp(false)} className="mt-8 w-full">Acknowledge</Button>
-                                </div>
-                            )}
+                         {/* Help Overlay */}
+                         {showHelp && (
+                            <div className="absolute inset-0 z-20 bg-slate-950/95 backdrop-blur-md p-8 flex flex-col justify-center animate-in fade-in">
+                                <h3 className="font-bold text-white mb-4">About Bastion</h3>
+                                <ul className="space-y-3 text-sm text-slate-400">
+                                    <li>• <strong>Local Only:</strong> Data never leaves this device.</li>
+                                    <li>• <strong>No Cloud:</strong> We cannot reset your password.</li>
+                                    <li>• <strong>Backups:</strong> Download a backup file from the main menu to access your vault on other devices.</li>
+                                </ul>
+                                <Button size="sm" variant="secondary" onClick={() => setShowHelp(false)} className="mt-6 w-full">Got it</Button>
+                            </div>
+                        )}
 
-                            {tab === 'open' ? (
-                                <form onSubmit={handleOpen} className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                                    <div className="text-center mb-6">
-                                        {extensionData ? (
-                                            <div className="p-6 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 animate-pulse">
-                                                 <PlugZap size={32} className="text-emerald-400 mx-auto mb-2" />
-                                                 <h2 className="text-white font-bold">Extension Linked</h2>
-                                                 <p className="text-emerald-400/80 text-xs mt-1">Biometric handshake ready</p>
-                                            </div>
-                                        ) : localVaultFound ? (
-                                             <div className="p-4 bg-slate-800/50 rounded-2xl border border-indigo-500/30 flex flex-col items-center">
-                                                 <div className="w-12 h-12 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 mb-2 ring-2 ring-indigo-500/20 ring-offset-2 ring-offset-slate-900">
-                                                     <HardDrive size={24} />
-                                                 </div>
-                                                 <h2 className="text-white font-bold text-sm">Local Encrypted Vault Found</h2>
-                                                 <p className="text-slate-400 text-xs mt-1">Enter password to decrypt</p>
-                                             </div>
-                                        ) : (
-                                            <div className="relative w-20 h-20 mx-auto mb-4">
-                                                <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping"></div>
-                                                <div className="relative bg-slate-900 border border-emerald-500/50 w-full h-full rounded-full flex items-center justify-center text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                                                    <Lock size={32} />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {extensionData ? (
-                                        <div className="space-y-4">
-                                            <Button type="button" onClick={handleExtensionRestore} className="w-full bg-emerald-600 hover:bg-emerald-500 py-4 shadow-[0_0_25px_-5px_rgba(16,185,129,0.5)]" isLoading={loading}>
-                                                <Zap size={18} /> Authenticate
-                                            </Button>
-                                            <button type="button" onClick={() => setExtensionData(null)} className="w-full text-xs text-slate-500 hover:text-white">Switch User</button>
-                                        </div>
+                        {tab === 'open' ? (
+                            <form onSubmit={handleOpen} className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                                <div className="text-center">
+                                    {localVaultFound ? (
+                                         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-400 mb-4 ring-1 ring-indigo-500/30">
+                                             <HardDrive size={28} />
+                                         </div>
                                     ) : (
-                                        <>
-                                            {!localVaultFound && (
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex justify-between">
-                                                        <span>Encrypted Payload</span>
-                                                        <span className="text-emerald-500 text-[9px] flex items-center gap-1"><Upload size={10}/> DRAG FILE HERE</span>
-                                                    </label>
-                                                    <div 
-                                                        className={`relative group transition-all duration-300 ${isDragging ? 'scale-[1.02] ring-2 ring-emerald-500' : ''}`}
-                                                        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-                                                        onDragLeave={() => setIsDragging(false)}
-                                                        onDrop={handleFileDrop}
-                                                    >
-                                                        <textarea 
-                                                            value={blob}
-                                                            onChange={e => setBlob(e.target.value)}
-                                                            className={`w-full h-28 bg-black/40 border rounded-xl p-4 text-[10px] font-mono text-emerald-500/80 focus:ring-1 focus:ring-emerald-500/50 transition-all outline-none resize-none placeholder-slate-700 leading-relaxed custom-scrollbar ${isDragging ? 'border-emerald-500 bg-emerald-900/10' : 'border-white/10 focus:border-emerald-500/50'}`}
-                                                            placeholder="&gt; Awaiting Input Stream..."
-                                                        />
-                                                        {isDragging && (
-                                                            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/90 backdrop-blur rounded-xl border-2 border-dashed border-emerald-500 text-emerald-400 font-bold text-sm tracking-widest">
-                                                                IMPORT_KEY_FILE
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Decryption Key</label>
-                                                <div className="relative">
-                                                    <Input 
-                                                        type={showPassword ? "text" : "password"}
-                                                        placeholder="••••••••••••" 
-                                                        value={password}
-                                                        onChange={e => setPassword(e.target.value)}
-                                                        className="bg-black/40 border-white/10 focus:ring-emerald-500/50 font-mono tracking-[0.2em] text-sm pr-10 text-white"
-                                                        icon={<KeyRound size={16} />}
-                                                    />
-                                                    <button 
-                                                        type="button"
-                                                        onClick={() => setShowPassword(!showPassword)}
-                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-400 transition-colors"
-                                                    >
-                                                        {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {error && (
-                                                <div className="flex items-center gap-3 text-red-400 text-xs font-bold bg-red-950/40 p-3 rounded-lg border border-red-500/30 animate-in fade-in slide-in-from-top-2">
-                                                    <ShieldAlert size={16} className="shrink-0" />
-                                                    {error}
-                                                </div>
-                                            )}
-
-                                            <div className="flex gap-2">
-                                                {localVaultFound && (
-                                                    <button type="button" onClick={clearLocalVault} className="px-3 rounded-xl border border-white/10 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remove local vault">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                )}
-                                                <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-4 font-bold tracking-widest shadow-[0_0_20px_-5px_rgba(5,150,105,0.4)]" isLoading={loading}>
-                                                    {localVaultFound ? 'UNLOCK_SYSTEM' : 'DECRYPT_VAULT'}
-                                                </Button>
-                                            </div>
-                                        </>
+                                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 text-slate-500 mb-4">
+                                             <Scan size={28} />
+                                         </div>
                                     )}
-                                </form>
-                            ) : (
-                                <form onSubmit={handleCreate} className="space-y-6 animate-in slide-in-from-left-4 duration-300">
-                                    <div className="text-center mb-6">
-                                        <div className="relative w-20 h-20 mx-auto mb-4">
-                                            <div className="absolute inset-0 bg-indigo-500/20 rounded-full animate-pulse"></div>
-                                            <div className="relative bg-slate-900 border border-indigo-500/50 w-full h-full rounded-full flex items-center justify-center text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.3)]">
-                                                <FileKey2 size={32} />
+                                    <h2 className="text-xl font-bold text-white">
+                                        {localVaultFound ? 'Welcome Back' : 'Restore Access'}
+                                    </h2>
+                                </div>
+
+                                {!localVaultFound && (
+                                    <>
+                                        <div className="bg-slate-800/40 p-4 rounded-xl border border-white/5 text-left animate-in slide-in-from-top-2">
+                                            <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs uppercase tracking-wider mb-2">
+                                                <Info size={14} /> Recovery Options
                                             </div>
+                                            <p className="text-xs text-slate-400 leading-relaxed">
+                                                <span className="text-indigo-400 font-bold">A:</span> Drag & drop your <strong>Backup File</strong> to restore your vault.<br/>
+                                                <span className="text-emerald-400 font-bold">B:</span> Paste your <strong>Master Seed</strong> to recover your identity.
+                                            </p>
                                         </div>
-                                    </div>
 
-                                    <div className="bg-indigo-950/20 p-4 rounded-xl border border-indigo-500/20 text-indigo-200/80 text-xs leading-relaxed backdrop-blur-sm font-mono">
-                                        &gt; GENERATING 512-BIT ENTROPY POOL<br/>
-                                        &gt; ESTABLISHING SECURE CONTEXT<br/>
-                                        &gt; WARNING: NO RECOVERY OPTION
-                                    </div>
+                                        <div 
+                                            className={`relative border-2 border-dashed rounded-xl transition-all group overflow-hidden ${
+                                                isDragging ? 'border-indigo-500 bg-indigo-500/10' : 
+                                                isSeed ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.2)]' :
+                                                isBackup ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_30px_rgba(99,102,241,0.2)]' :
+                                                'border-slate-700 hover:border-indigo-500/50 hover:bg-white/5 focus-within:border-indigo-500/50 focus-within:bg-white/5'
+                                            }`}
+                                        >
+                                            {/* Background Label (Hidden if content exists) */}
+                                            {!blob && (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 opacity-50 group-focus-within:opacity-20 transition-opacity">
+                                                    <div className="flex gap-3 text-slate-500 mb-2">
+                                                        <FileText size={20} />
+                                                        <Fingerprint size={20} />
+                                                    </div>
+                                                    <p className="text-xs font-bold text-slate-500 uppercase text-center">Drag Backup File<br/><span className="text-[10px] font-normal normal-case opacity-70">or paste Master Seed</span></p>
+                                                </div>
+                                            )}
+                                            
+                                            <textarea 
+                                                value={blob}
+                                                onChange={e => setBlob(e.target.value)}
+                                                className="w-full h-32 bg-transparent p-4 text-[11px] font-mono text-slate-300 resize-none outline-none relative z-10 placeholder-transparent custom-scrollbar leading-relaxed"
+                                                spellCheck={false}
+                                                onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                                                onDragLeave={() => setIsDragging(false)}
+                                                onDrop={handleFileDrop}
+                                            />
+                                            
+                                            {/* Status Indicator */}
+                                            {(isSeed || isBackup) && (
+                                                <div className="absolute bottom-2 right-2 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 bg-slate-900/80 backdrop-blur border border-white/10 shadow-lg z-20">
+                                                    {isSeed ? (
+                                                        <span className="text-emerald-400 flex items-center gap-1"><Fingerprint size={10} /> VALID SEED</span>
+                                                    ) : (
+                                                        <span className="text-indigo-400 flex items-center gap-1"><FileText size={10} /> BACKUP FILE</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
 
-                                    {/* Password Generator */}
+                                <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <label className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                            <span>Generated Master Key</span>
-                                            <span className="text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">STRONG</span>
-                                        </label>
-                                        
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <KeyRound size={16} className="text-indigo-500" />
-                                            </div>
-                                            <input 
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Master Password</label>
+                                        <div className="relative">
+                                            <Input 
                                                 type={showPassword ? "text" : "password"}
                                                 value={password}
                                                 onChange={e => setPassword(e.target.value)}
-                                                className="w-full bg-black/40 border border-white/10 text-white rounded-xl py-3 pl-10 pr-32 focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all outline-none font-mono tracking-wider text-xs shadow-inner"
+                                                className="pr-10"
+                                                autoFocus={localVaultFound}
+                                                placeholder={localVaultFound ? "••••••••" : "Password for this identity"}
                                             />
-                                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-slate-800/80 rounded-lg p-1 border border-white/5 backdrop-blur">
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    className="p-1.5 text-slate-400 hover:text-white rounded-md transition-colors"
-                                                >
-                                                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                                                </button>
-                                                <div className="w-px h-4 bg-white/10" />
-                                                <button 
-                                                    type="button"
-                                                    onClick={handleRegeneratePassword}
-                                                    className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-md transition-colors"
-                                                >
-                                                    <RefreshCw size={14} />
-                                                </button>
-                                                <button 
-                                                    type="button"
-                                                    onClick={handleCopyPassword}
-                                                    className={`p-1.5 rounded-md transition-all ${copiedPassword ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}`}
-                                                >
-                                                    {copiedPassword ? <Check size={14} /> : <Copy size={14} />}
-                                                </button>
-                                            </div>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                                            >
+                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <Button 
-                                        type="button" 
-                                        onClick={handleDownloadRescueKit}
-                                        variant="secondary"
-                                        className="w-full border-dashed border-slate-600 hover:border-indigo-500 hover:bg-indigo-500/10 hover:text-indigo-300 py-3 text-xs"
-                                    >
-                                        <FileDown size={16} /> DOWNLOAD_RESCUE_KIT
-                                    </Button>
-
                                     {error && (
-                                        <div className="flex items-center gap-2 text-red-400 text-xs font-bold bg-red-950/30 p-3 rounded-lg border border-red-500/20">
-                                            <ShieldAlert size={14} className="shrink-0" />
-                                            {error}
+                                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-400 text-xs font-bold">
+                                            <ShieldAlert size={14} /> {error}
                                         </div>
                                     )}
 
-                                    <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 font-bold tracking-widest shadow-[0_0_20px_-5px_rgba(79,70,229,0.4)]" isLoading={loading}>
-                                        INITIALIZE_SYSTEM
-                                    </Button>
-                                </form>
-                            )}
-                        </div>
+                                    <div className="flex gap-2">
+                                        {localVaultFound && (
+                                            <button 
+                                                type="button" 
+                                                onClick={clearLocalVault}
+                                                className="p-3 rounded-xl border border-white/10 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                title="Clear local data"
+                                            >
+                                                <Trash2 size={20} />
+                                            </button>
+                                        )}
+                                        <Button type="submit" className={`w-full h-12 text-lg shadow-lg ${isSeed ? 'shadow-emerald-500/20 bg-emerald-600 hover:bg-emerald-500' : 'shadow-indigo-500/20'}`} isLoading={loading}>
+                                            {isSeed ? 'Recover Identity' : 'Unlock Vault'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleCreate} className="space-y-6 animate-in fade-in slide-in-from-left-4">
+                                <div className="text-center mb-6">
+                                    <h2 className="text-xl font-bold text-white">Create New Vault</h2>
+                                    <p className="text-slate-400 text-sm mt-2">
+                                        Everything is encrypted locally. <br/>
+                                        <span className="text-amber-400/80 text-xs">If you forget this password, your data is lost forever.</span>
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                        <span>Master Password</span>
+                                        <button type="button" onClick={handleRegeneratePassword} className="text-indigo-400 hover:text-white flex items-center gap-1">
+                                            <RefreshCw size={10} /> Generate
+                                        </button>
+                                    </label>
+                                    <div className="relative group">
+                                        <Input 
+                                            type={showPassword ? "text" : "password"}
+                                            value={password}
+                                            onChange={e => setPassword(e.target.value)}
+                                            className="pr-20"
+                                        />
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                            <button type="button" onClick={handleCopyPassword} className="p-1.5 text-slate-400 hover:text-white rounded">
+                                                {copiedPassword ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                                            </button>
+                                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="p-1.5 text-slate-400 hover:text-white rounded">
+                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Button type="submit" className="w-full h-12 text-lg shadow-lg shadow-emerald-500/20 bg-emerald-600 hover:bg-emerald-500" isLoading={loading}>
+                                    Create Vault
+                                </Button>
+                                
+                                <p className="text-center text-[10px] text-slate-500 leading-relaxed">
+                                    By creating a vault, you acknowledge that Bastion operates entirely offline. 
+                                    You are responsible for downloading backups from the main menu.
+                                </p>
+                            </form>
+                        )}
                     </div>
                 </div>
             </div>
