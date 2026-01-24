@@ -403,4 +403,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
                                 
                                 <p className="text-center text-[10px] text-slate-500 leading-relaxed">
                                     By creating a vault, you acknowledge that Bastion operates entirely offline. 
-                                    You are
+                                    You are responsible for downloading backups from the main menu.
+                                </p>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+};
