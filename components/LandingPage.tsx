@@ -4,7 +4,6 @@ import { TopNav } from './TopNav';
 import { LandingFeatures } from './LandingFeatures';
 import { Button } from './Button';
 import { BrandLogo } from './BrandLogo';
-import { JAVA_BASTION_SOURCE } from '../services/javaTemplate';
 import { ArrowRight, BookOpen, ShieldCheck, ServerOff, Scaling, Zap, Lock, HeartHandshake, Code2, Database, HardDrive, FileJson, Binary, CheckCircle, XCircle, AlertTriangle, Shield, Terminal, Coffee } from 'lucide-react';
 
 interface LandingPageProps {
@@ -92,16 +91,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const [activeStage, setActiveStage] = useState<'input' | 'process' | 'storage'>('input');
   
   const currentDemo = DEMO_STAGES[activeStage];
-
-  const downloadJavaEngine = () => {
-      const blob = new Blob([JAVA_BASTION_SOURCE], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Bastion.java';
-      a.click();
-      URL.revokeObjectURL(url);
-  };
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-slate-950 font-sans text-slate-200">
@@ -373,9 +362,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                         <Button size="lg" className="h-16 px-10 text-xl bg-white text-slate-950 hover:bg-slate-200 hover:text-slate-900 shadow-xl border-0">
                             Support Bastion
                         </Button>
-                        <Button size="lg" variant="secondary" className="h-16 px-10 text-xl" onClick={downloadJavaEngine}>
-                            <Coffee size={20} className="mr-2" /> Download Java App
-                        </Button>
+                        <a href="https://drive.google.com/file/d/1q-xh7ZY5FVnpCE7S_EGrzUV-6qzdUqNb/view?usp=share_link" target="_blank" rel="noreferrer">
+                            <Button size="lg" variant="secondary" className="h-16 px-10 text-xl">
+                                <Coffee size={20} className="mr-2" /> Download Java App
+                            </Button>
+                        </a>
                         <Button size="lg" variant="secondary" className="h-16 px-10 text-xl" onClick={() => onNavigate('auth')}>
                             Launch Web App
                         </Button>

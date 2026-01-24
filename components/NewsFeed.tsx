@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { Button } from './Button';
-import { Radio, ExternalLink, Calendar, Loader2, Signal, AlertTriangle } from 'lucide-react';
+import { ExternalLink, Calendar, Loader2, Signal, AlertTriangle } from 'lucide-react';
 
 interface BlogPost {
   title: string;
@@ -23,19 +24,47 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ compact = false }) => {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        // Using rss2json to bridge the XML feed to JSON and bypass CORS securely
-        const FEED_URL = 'https://bastionironledger.blogspot.com/feeds/posts/default?alt=rss';
-        const API_URL = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(FEED_URL)}`;
+        // Direct connection to Bastion Iron Ledger via Blogger JSON API
+        // Using cache-busting timestamp to ensure fresh intel
+        const FEED_URL = `https://bastionironledger.blogspot.com/feeds/posts/default?alt=json&t=${Date.now()}`;
         
-        const response = await fetch(API_URL);
+        const response = await fetch(FEED_URL);
+        if (!response.ok) throw new Error("Signal Lost");
+        
         const data = await response.json();
+        const entries = data.feed.entry || [];
+
+        const mappedPosts: BlogPost[] = entries.map((entry: any) => {
+             const content = entry.content?.$t || entry.summary?.$t || "";
+             
+             // Extract Link
+             const linkObj = entry.link.find((l: any) => l.rel === 'alternate');
+             const link = linkObj ? linkObj.href : 'https://bastionironledger.blogspot.com';
+
+             // Extract Thumbnail
+             let thumbnail = entry.media$thumbnail?.url;
+             if (thumbnail) {
+                 // Upgrade thumbnail resolution from 72px to 600px for high-density displays
+                 thumbnail = thumbnail.replace(/\/s[0-9]+-c\//, "/w600/"); 
+             } else {
+                 // Fallback: Scrape first image from HTML content
+                 const imgMatch = content.match(/<img[^>]+src="([^">]+)"/);
+                 if (imgMatch) thumbnail = imgMatch[1];
+             }
+
+             return {
+                 title: entry.title.$t,
+                 pubDate: entry.published.$t,
+                 link: link,
+                 description: content, // Full content, we strip it in UI
+                 thumbnail: thumbnail || '',
+                 author: entry.author?.[0]?.name?.$t || 'Bastion HQ'
+             };
+        });
         
-        if (data.status === 'ok') {
-          setPosts(data.items);
-        } else {
-          throw new Error("Signal jammed");
-        }
+        setPosts(mappedPosts);
       } catch (e) {
+        console.error(e);
         setError("Unable to establish uplink with Bastion Iron Ledger.");
       } finally {
         setLoading(false);
