@@ -25,13 +25,41 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ compact = false }) => {
     const fetchNews = async () => {
       try {
         // Direct connection to Bastion Iron Ledger via Blogger JSON API
-        // Using cache-busting timestamp to ensure fresh intel
-        const FEED_URL = `https://bastionironledger.blogspot.com/feeds/posts/default?alt=json&t=${Date.now()}`;
-        
-        const response = await fetch(FEED_URL);
-        if (!response.ok) throw new Error("Signal Lost");
-        
-        const data = await response.json();
+        // Using JSONP (Script Injection) to bypass CORS restrictions enforced by browsers on 'fetch'
+        const data: any = await new Promise((resolve, reject) => {
+            const callbackName = 'bastion_ledger_' + Math.round(Math.random() * 100000);
+            const script = document.createElement('script');
+            const url = `https://bastionironledger.blogspot.com/feeds/posts/default?alt=json&callback=${callbackName}&t=${Date.now()}`;
+
+            // Safety Timeout (8s)
+            const timeout = setTimeout(() => {
+                cleanup();
+                reject(new Error("Connection timeout"));
+            }, 8000);
+
+            const cleanup = () => {
+                // @ts-ignore
+                delete window[callbackName];
+                if (document.head.contains(script)) document.head.removeChild(script);
+                clearTimeout(timeout);
+            }
+
+            // Register global callback
+            // @ts-ignore
+            window[callbackName] = (response) => {
+                cleanup();
+                resolve(response);
+            };
+
+            script.src = url;
+            script.onerror = () => {
+                cleanup();
+                reject(new Error("Network protocol error"));
+            };
+
+            document.head.appendChild(script);
+        });
+
         const entries = data.feed.entry || [];
 
         const mappedPosts: BlogPost[] = entries.map((entry: any) => {
