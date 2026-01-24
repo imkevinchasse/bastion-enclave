@@ -109,6 +109,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
     try {
         // Encrypt and pass up to App.tsx (which handles saving to localStorage)
         const newBlob = await ChaosLock.pack(initialState, password);
+        
+        // CRITICAL FIX: Reset version sentinel when explicitly creating a NEW vault.
+        // This prevents "State Regression" alerts caused by previous vault history.
+        localStorage.removeItem('BASTION_MAX_VERSION');
+
         onOpen(initialState, newBlob, password);
     } catch (e) {
         setError("Failed to create vault.");
@@ -398,14 +403,4 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
                                 
                                 <p className="text-center text-[10px] text-slate-500 leading-relaxed">
                                     By creating a vault, you acknowledge that Bastion operates entirely offline. 
-                                    You are responsible for downloading backups from the main menu.
-                                </p>
-                            </form>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-  );
-};
+                                    You are
