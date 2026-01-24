@@ -86,8 +86,9 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
 
       {/* Mobile Navigation Menu */}
       {isMobileMenuOpen && (
-        <div className="absolute top-full left-4 right-4 mt-2 p-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex flex-col gap-1 md:hidden animate-in slide-in-from-top-2 fade-in duration-200 origin-top z-40">
+        <div className="absolute top-full left-4 right-4 mt-2 p-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex flex-col gap-1 md:hidden animate-mobile-menu origin-top z-40 overflow-hidden">
            <MobileNavButton 
+              index={0}
               active={active === 'landing'} 
               onClick={() => handleNav('landing')} 
               icon={<Home size={18} />} 
@@ -95,6 +96,7 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
               desc="Home & Features"
            />
            <MobileNavButton 
+              index={1}
               active={active === 'auth'} 
               onClick={() => handleNav('auth')} 
               icon={<Lock size={18} />} 
@@ -103,6 +105,7 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
               activeColor="text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
            />
            <MobileNavButton 
+              index={2}
               active={active === 'news'} 
               onClick={() => handleNav('news')} 
               icon={<Signal size={18} />} 
@@ -111,6 +114,7 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
               activeColor="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
            />
            <MobileNavButton 
+              index={3}
               active={active === 'documents'} 
               onClick={() => handleNav('documents')} 
               icon={<FileText size={18} />} 
@@ -119,6 +123,7 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
               activeColor="text-blue-400 bg-blue-500/10 border-blue-500/20"
            />
            <MobileNavButton 
+              index={4}
               active={active === 'game'} 
               onClick={() => handleNav('game')} 
               icon={<Gamepad2 size={18} />} 
@@ -141,10 +146,11 @@ const NavButton = ({ active, onClick, icon, label, activeColor = 'bg-slate-700',
   </button>
 );
 
-const MobileNavButton = ({ active, onClick, icon, label, desc, activeColor = 'text-white bg-slate-800 border-white/10' }: any) => (
+const MobileNavButton = ({ active, onClick, icon, label, desc, index, activeColor = 'text-white bg-slate-800 border-white/10' }: any) => (
   <button 
       onClick={onClick}
-      className={`p-4 rounded-xl flex items-center gap-4 transition-all border ${active ? activeColor : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+      style={{ animationDelay: `${index * 50}ms` }}
+      className={`p-4 rounded-xl flex items-center gap-4 transition-all border animate-mobile-item ${active ? activeColor : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
   >
       <div className={`p-2 rounded-lg ${active ? 'bg-black/20' : 'bg-slate-950 border border-white/5'}`}>
         {icon}
