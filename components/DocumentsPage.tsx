@@ -1,10 +1,12 @@
+
 import React from 'react';
 import { TopNav } from './TopNav';
 import { Button } from './Button';
 import { FileText, ExternalLink, ShieldAlert, BookOpen, Fingerprint, Microscope, FileCheck, ArrowRight, Mail } from 'lucide-react';
+import { PublicPage } from '../types';
 
 interface DocumentsPageProps {
-  onNavigate: (page: 'landing' | 'auth' | 'news' | 'documents') => void;
+  onNavigate: (page: PublicPage) => void;
 }
 
 const DOCUMENTS = [

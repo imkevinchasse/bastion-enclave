@@ -1,14 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { TopNav } from './TopNav';
 import { Lock, Unlock, FileKey2, RefreshCw, Copy, Check, Eye, EyeOff, ShieldAlert, KeyRound, FileDown, HelpCircle, Upload, Zap, PlugZap, Hexagon, HardDrive, Trash2 } from 'lucide-react';
 import { ChaosLock, ChaosEngine } from '../services/cryptoService';
-import { VaultState } from '../types';
+import { VaultState, PublicPage } from '../types';
 
 interface AuthScreenProps {
   onOpen: (state: VaultState, blob: string, password: string) => void;
-  onNavigate: (page: 'landing' | 'auth' | 'news' | 'documents') => void;
+  onNavigate: (page: PublicPage) => void;
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) => {

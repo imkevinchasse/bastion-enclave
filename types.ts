@@ -1,3 +1,4 @@
+
 export interface VaultConfig {
   id: string;
   name: string; // Service Name
@@ -83,6 +84,8 @@ export enum AppTab {
   GENERATOR = 'GENERATOR',
   AUDITOR = 'AUDITOR',
   EXTENSIONS = 'EXTENSIONS',
+  SANDBOX = 'SANDBOX',
+  GAME = 'GAME',
   NEWS = 'NEWS',
 }
 
@@ -91,3 +94,5 @@ export interface LLMStatus {
   progress: number;
   message: string;
 }
+
+export type PublicPage = 'landing' | 'auth' | 'news' | 'documents' | 'game';

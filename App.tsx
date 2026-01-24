@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { AuthScreen } from './components/AuthScreen';
@@ -7,11 +8,14 @@ import { Notes } from './components/Notes';
 import { Locker } from './components/Locker';
 import { Contacts } from './components/Contacts';
 import { Extensions } from './components/Extensions';
+import { Sandbox } from './components/Sandbox';
+import { SecurityGame } from './components/SecurityGame';
 import { NewsPage } from './components/NewsPage';
 import { DocumentsPage } from './components/DocumentsPage';
-import { VaultConfig, AppTab, VaultState, Note, Resonance, Contact } from './types';
+import { GamePage } from './components/GamePage';
+import { VaultConfig, AppTab, VaultState, Note, Resonance, Contact, PublicPage } from './types';
 import { ChaosLock } from './services/cryptoService';
-import { Shield, Key, Boxes, LogOut, Terminal, Copy, Check, Save, Layers, Cpu, DatabaseZap, Book, FileLock2, Users, Download, AlertTriangle, Blocks, Fingerprint, History, AlertOctagon, RefreshCw } from 'lucide-react';
+import { Shield, Key, Boxes, LogOut, Terminal, Copy, Check, Save, Layers, Cpu, DatabaseZap, Book, FileLock2, Users, Download, AlertTriangle, Blocks, Fingerprint, History, AlertOctagon, RefreshCw, FlaskConical, Gamepad2 } from 'lucide-react';
 import { Button } from './components/Button';
 import { BrandLogo } from './components/BrandLogo';
 
@@ -34,7 +38,7 @@ export default function App() {
   const [vaultString, setVaultString] = useState<string>('');
   
   // Public Routing State
-  const [publicPage, setPublicPage] = useState<'landing' | 'auth' | 'news' | 'documents'>('landing');
+  const [publicPage, setPublicPage] = useState<PublicPage>('landing');
 
   const [currentTab, setCurrentTab] = useState<AppTab>(AppTab.VAULT);
   const [copiedString, setCopiedString] = useState(false);
@@ -246,17 +250,13 @@ HOW TO RESTORE:
 
   // ROUTER LOGIC
   if (!vaultState) {
-    if (publicPage === 'news') {
-        return <NewsPage onNavigate={setPublicPage} />;
+    switch(publicPage) {
+        case 'news': return <NewsPage onNavigate={setPublicPage} />;
+        case 'documents': return <DocumentsPage onNavigate={setPublicPage} />;
+        case 'game': return <GamePage onNavigate={setPublicPage} />;
+        case 'auth': return <AuthScreen onOpen={handleOpenVault} onNavigate={setPublicPage} />;
+        default: return <LandingPage onNavigate={setPublicPage} />;
     }
-    if (publicPage === 'documents') {
-        return <DocumentsPage onNavigate={setPublicPage} />;
-    }
-    if (publicPage === 'auth') {
-        return <AuthScreen onOpen={handleOpenVault} onNavigate={setPublicPage} />;
-    }
-    // Default to Landing Page
-    return <LandingPage onNavigate={setPublicPage} />;
   }
 
   return (
@@ -317,8 +317,9 @@ HOW TO RESTORE:
                         <NavButton active={currentTab === AppTab.NOTES} onClick={() => setCurrentTab(AppTab.NOTES)} icon={<Book size={14} />}>Notebook</NavButton>
                         <NavButton active={currentTab === AppTab.CONTACTS} onClick={() => setCurrentTab(AppTab.CONTACTS)} icon={<Users size={14} />}>People</NavButton>
                         <NavButton active={currentTab === AppTab.LOCKER} onClick={() => setCurrentTab(AppTab.LOCKER)} icon={<FileLock2 size={14} />}>Locker</NavButton>
+                        <NavButton active={currentTab === AppTab.SANDBOX} onClick={() => setCurrentTab(AppTab.SANDBOX)} icon={<FlaskConical size={14} />}>Sandbox</NavButton>
                         <NavButton active={currentTab === AppTab.AUDITOR} onClick={() => setCurrentTab(AppTab.AUDITOR)} icon={<Cpu size={14} />}>AI</NavButton>
-                        <NavButton active={currentTab === AppTab.EXTENSIONS} onClick={() => setCurrentTab(AppTab.EXTENSIONS)} icon={<Blocks size={14} />}>Plugins</NavButton>
+                        <NavButton active={currentTab === AppTab.GAME} onClick={() => setCurrentTab(AppTab.GAME)} icon={<Gamepad2 size={14} />}>Challenge</NavButton>
                     </nav>
                     <button 
                         onClick={handleUnmount} 
@@ -396,13 +397,14 @@ HOW TO RESTORE:
       </header>
 
       {/* Mobile Nav Bottom */}
-      <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/90 backdrop-blur-xl border-t border-white/10 p-2 grid grid-cols-6 gap-1 transition-all duration-500 ${rollbackAlert ? 'blur-sm grayscale opacity-50 pointer-events-none' : ''}`}>
-         <MobileNavBtn active={currentTab === AppTab.VAULT} onClick={() => setCurrentTab(AppTab.VAULT)} icon={<Fingerprint size={18} />} label="Logins" />
-         <MobileNavBtn active={currentTab === AppTab.NOTES} onClick={() => setCurrentTab(AppTab.NOTES)} icon={<Book size={18} />} label="Notebook" />
-         <MobileNavBtn active={currentTab === AppTab.CONTACTS} onClick={() => setCurrentTab(AppTab.CONTACTS)} icon={<Users size={18} />} label="People" />
-         <MobileNavBtn active={currentTab === AppTab.LOCKER} onClick={() => setCurrentTab(AppTab.LOCKER)} icon={<FileLock2 size={18} />} label="Files" />
-         <MobileNavBtn active={currentTab === AppTab.AUDITOR} onClick={() => setCurrentTab(AppTab.AUDITOR)} icon={<Cpu size={18} />} label="AI" />
-         <MobileNavBtn active={currentTab === AppTab.EXTENSIONS} onClick={() => setCurrentTab(AppTab.EXTENSIONS)} icon={<Blocks size={18} />} label="Plugins" />
+      <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/90 backdrop-blur-xl border-t border-white/10 p-2 grid grid-cols-7 gap-1 transition-all duration-500 ${rollbackAlert ? 'blur-sm grayscale opacity-50 pointer-events-none' : ''}`}>
+         <MobileNavBtn active={currentTab === AppTab.VAULT} onClick={() => setCurrentTab(AppTab.VAULT)} icon={<Fingerprint size={16} />} label="Logins" />
+         <MobileNavBtn active={currentTab === AppTab.NOTES} onClick={() => setCurrentTab(AppTab.NOTES)} icon={<Book size={16} />} label="Notebook" />
+         <MobileNavBtn active={currentTab === AppTab.CONTACTS} onClick={() => setCurrentTab(AppTab.CONTACTS)} icon={<Users size={16} />} label="People" />
+         <MobileNavBtn active={currentTab === AppTab.LOCKER} onClick={() => setCurrentTab(AppTab.LOCKER)} icon={<FileLock2 size={16} />} label="Files" />
+         <MobileNavBtn active={currentTab === AppTab.SANDBOX} onClick={() => setCurrentTab(AppTab.SANDBOX)} icon={<FlaskConical size={16} />} label="Sandbox" />
+         <MobileNavBtn active={currentTab === AppTab.AUDITOR} onClick={() => setCurrentTab(AppTab.AUDITOR)} icon={<Cpu size={16} />} label="AI" />
+         <MobileNavBtn active={currentTab === AppTab.GAME} onClick={() => setCurrentTab(AppTab.GAME)} icon={<Gamepad2 size={16} />} label="Play" />
       </div>
 
       <main className={`max-w-4xl mx-auto px-4 py-8 relative z-10 transition-all duration-500 ${rollbackAlert ? 'blur-md pointer-events-none opacity-50 select-none grayscale' : ''}`}>
@@ -410,8 +412,10 @@ HOW TO RESTORE:
         {currentTab === AppTab.NOTES && <Notes notes={vaultState.notes} onSave={handleSaveNote} onDelete={handleDeleteNote} />}
         {currentTab === AppTab.CONTACTS && <Contacts contacts={vaultState.contacts || []} onSave={handleSaveContact} onDelete={handleDeleteContact} />}
         {currentTab === AppTab.LOCKER && <Locker entries={vaultState.locker || []} onLock={handleLockEntry} onDelete={handleDeleteLockerEntry} />}
+        {currentTab === AppTab.SANDBOX && <Sandbox />}
         {currentTab === AppTab.AUDITOR && <AIAuditor />}
         {currentTab === AppTab.EXTENSIONS && <Extensions />}
+        {currentTab === AppTab.GAME && <SecurityGame />}
       </main>
     </div>
   );

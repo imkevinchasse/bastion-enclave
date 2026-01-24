@@ -5,9 +5,10 @@ import { LandingFeatures } from './LandingFeatures';
 import { Button } from './Button';
 import { BrandLogo } from './BrandLogo';
 import { ArrowRight, BookOpen, ShieldCheck, ServerOff, Scaling, Zap, Lock, HeartHandshake, Code2, Database, HardDrive, FileJson, Binary, CheckCircle, XCircle, AlertTriangle, Shield, Terminal, Coffee } from 'lucide-react';
+import { PublicPage } from '../types';
 
 interface LandingPageProps {
-  onNavigate: (page: 'landing' | 'auth' | 'news' | 'documents') => void;
+  onNavigate: (page: PublicPage) => void;
 }
 
 const DEMO_STAGES = {

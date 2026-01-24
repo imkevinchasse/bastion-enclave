@@ -1,10 +1,12 @@
+
 import React from 'react';
 import { BrandLogo } from './BrandLogo';
-import { Signal, Lock, Hexagon, Home, FileText } from 'lucide-react';
+import { Signal, Lock, Hexagon, Home, FileText, Gamepad2 } from 'lucide-react';
+import { PublicPage } from '../types';
 
 interface TopNavProps {
-  active: 'landing' | 'auth' | 'news' | 'documents';
-  onNavigate: (page: 'landing' | 'auth' | 'news' | 'documents') => void;
+  active: PublicPage;
+  onNavigate: (page: PublicPage) => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
@@ -23,7 +25,7 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex bg-slate-950/80 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-2xl overflow-x-auto">
+      <div className="flex bg-slate-950/80 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-2xl overflow-x-auto no-scrollbar">
           <button 
             onClick={() => onNavigate('landing')}
             className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${active === 'landing' ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
@@ -47,6 +49,12 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
             className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${active === 'documents' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
           >
              <FileText size={14} /> <span>Research</span>
+          </button>
+          <button 
+            onClick={() => onNavigate('game')}
+            className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${active === 'game' ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+             <Gamepad2 size={14} /> <span className="hidden sm:inline">Challenge</span>
           </button>
       </div>
     </nav>

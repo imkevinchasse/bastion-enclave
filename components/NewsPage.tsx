@@ -1,10 +1,12 @@
+
 import React from 'react';
 import { NewsFeed } from './NewsFeed';
 import { TopNav } from './TopNav';
 import { Signal, Rss } from 'lucide-react';
+import { PublicPage } from '../types';
 
 interface NewsPageProps {
-  onNavigate: (page: 'landing' | 'auth' | 'news' | 'documents') => void;
+  onNavigate: (page: PublicPage) => void;
 }
 
 export const NewsPage: React.FC<NewsPageProps> = ({ onNavigate }) => {
@@ -25,7 +27,7 @@ export const NewsPage: React.FC<NewsPageProps> = ({ onNavigate }) => {
         <div className="relative z-10 flex-1 w-full max-w-5xl mx-auto p-4 pt-32 pb-12">
             
             {/* Page Hero */}
-            <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-4">
+            <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4">
                 <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-emerald-500/20 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)]">
                     <Signal size={32} className="text-emerald-400" />
                 </div>
@@ -39,8 +41,15 @@ export const NewsPage: React.FC<NewsPageProps> = ({ onNavigate }) => {
 
             {/* Feed Container */}
             <div className="relative">
-                <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-3xl rounded-3xl border border-white/5 shadow-2xl"></div>
-                <div className="relative p-6 md:p-8">
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-800"></div>
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Rss size={14} /> Live Feed
+                    </div>
+                    <div className="h-px flex-1 bg-gradient-to-r from-slate-800 to-transparent"></div>
+                </div>
+
+                <div className="relative p-2 md:p-6">
                      <NewsFeed compact={false} />
                 </div>
             </div>
