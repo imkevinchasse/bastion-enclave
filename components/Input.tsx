@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -12,6 +13,10 @@ export const Input: React.FC<InputProps> = ({ label, error, icon, className = ''
       {label && <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1 group-focus-within:text-indigo-400 transition-colors">{label}</label>}
       <div className="relative">
         <input
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck="false"
           className={`w-full bg-slate-900/50 border ${error ? 'border-red-500/50 focus:border-red-500' : 'border-slate-700/50 focus:border-indigo-500/50'} text-slate-100 rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none placeholder-slate-600 shadow-inner backdrop-blur-sm ${icon ? 'pl-11' : ''} ${className}`}
           {...props}
         />

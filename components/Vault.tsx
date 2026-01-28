@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
 import { VaultConfig } from '../types';
 import { Input } from './Input';
 import { Button } from './Button';
 import { Generator } from './Generator';
 import { ChaosEngine, ChaosLock } from '../services/cryptoService';
-import { Trash2, Copy, Eye, EyeOff, Search, Plus, RotateCw, Wallet, Globe, ArrowLeft, Dices, ShieldCheck } from 'lucide-react';
+import { Trash2, Copy, Eye, EyeOff, Search, Plus, RotateCw, Wallet, Globe, ArrowLeft, ShieldCheck, KeyRound } from 'lucide-react';
 
 interface VaultProps {
   configs: VaultConfig[];
@@ -49,7 +50,6 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
     setView('list');
   };
 
-  // INTEGRATED GENERATOR VIEW
   if (view === 'generator') {
       return (
           <div className="space-y-6">
@@ -58,7 +58,6 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
                       <ArrowLeft size={18} /> Back to Logins
                   </Button>
               </div>
-              {/* Generator is now an integrated tool */}
               <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-8 shadow-2xl animate-in fade-in slide-in-from-right-4">
                    <Generator />
               </div>
@@ -66,7 +65,6 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
       );
   }
 
-  // ADD LOGIN VIEW
   if (view === 'add') {
     return (
         <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-right-8 border border-white/5 relative overflow-hidden">
@@ -80,7 +78,7 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
                 <Button variant="ghost" onClick={() => setView('list')}>Cancel</Button>
             </div>
             
-            <form onSubmit={handleAdd} className="space-y-6 relative z-10">
+            <form onSubmit={handleAdd} className="space-y-8 relative z-10">
                 <div className="grid md:grid-cols-2 gap-6">
                     <Input 
                         label="Service Name" 
@@ -101,8 +99,10 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
                 </div>
                 
                 <div className="bg-slate-900/50 p-6 rounded-xl border border-white/5">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Encryption Parameters</h3>
-                    <div className="flex items-center gap-6">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <KeyRound size={14} /> Password Configuration
+                    </h3>
+                    <div className="flex flex-col md:flex-row gap-6">
                         <div className="flex-1">
                              <label className="block text-xs text-slate-400 mb-2">Length: {newConfig.length}</label>
                              <input 
@@ -113,7 +113,7 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
                                 className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                             />
                         </div>
-                        <label className="flex items-center gap-3 cursor-pointer bg-slate-800/50 px-4 py-2 rounded-lg border border-white/5 hover:bg-slate-800 transition-colors">
+                        <label className="flex items-center gap-3 cursor-pointer bg-slate-800/50 px-4 py-2 rounded-lg border border-white/5 hover:bg-slate-800 transition-colors h-10 self-end">
                             <input 
                                 type="checkbox" 
                                 checked={newConfig.useSymbols} 
@@ -127,16 +127,12 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
 
                 <div className="pt-2">
                     <Button type="submit" className="w-full py-3 text-lg">Encrypt & Add to Vault</Button>
-                    <p className="text-center text-[10px] text-slate-500 mt-3">
-                        This action will modify your Master Vault Token. You will need to save the new token immediately.
-                    </p>
                 </div>
             </form>
         </div>
     )
   }
 
-  // MAIN LIST VIEW
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
@@ -152,9 +148,8 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
                     onChange={(e) => setSearch(e.target.value)}
                     className="md:w-64"
                 />
-                {/* Tools */}
                 <Button onClick={() => setView('generator')} variant="secondary" className="shrink-0" title="Random Password Generator">
-                    <ShieldCheck size={18} /> Password Generator
+                    <ShieldCheck size={18} /> Generator
                 </Button>
                 <Button onClick={() => setView('add')} className="shrink-0">
                     <Plus size={18} /> New
@@ -212,68 +207,59 @@ const VaultConfigCard: React.FC<{
         setReveal(!reveal);
     };
 
-    const copy = (txt: string) => {
-        navigator.clipboard.writeText(txt);
+    const copy = () => {
+        navigator.clipboard.writeText(password);
     };
 
     return (
-        <div className="relative bg-slate-900/80 border border-white/5 p-5 rounded-xl group transition-all duration-300 hover:border-indigo-500/30 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)] overflow-hidden">
-            {/* Ambient Background Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            
-            <div className="relative z-10">
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-indigo-400 font-bold text-lg shadow-inner">
-                            {config.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-slate-200 leading-tight">{config.name}</h3>
-                            <p className="text-xs text-slate-500 font-mono mt-0.5">{config.username}</p>
-                        </div>
+        <div className="bg-slate-900/80 border border-white/5 p-5 rounded-xl hover:border-indigo-500/30 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)] group transition-all duration-300">
+            <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-indigo-400 font-bold text-lg shadow-inner">
+                        {config.name.charAt(0).toUpperCase()}
                     </div>
-                    
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
-                        <button onClick={onRotate} className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-amber-400 transition-colors" title="Rotate Key">
-                            <RotateCw size={14} />
-                        </button>
-                        <button onClick={onDelete} className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-red-400 transition-colors" title="Delete">
-                            <Trash2 size={14} />
-                        </button>
+                    <div>
+                        <h3 className="font-bold text-slate-200 leading-tight">{config.name}</h3>
+                        <p className="text-xs text-slate-500 font-mono mt-0.5">{config.username}</p>
                     </div>
                 </div>
+                
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
+                    <button onClick={onRotate} className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-amber-400 transition-colors" title="Rotate Key">
+                        <RotateCw size={14} />
+                    </button>
+                    <button onClick={onDelete} className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-red-400 transition-colors" title="Delete">
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            </div>
 
-                {/* Password Display */}
-                <div className="bg-black/40 rounded-lg border border-black/20 p-1 flex items-stretch h-12 shadow-inner">
-                    <div className={`flex-1 font-mono text-sm flex items-center px-3 tracking-wider overflow-hidden ${reveal ? 'text-emerald-400' : 'text-slate-600'}`}>
-                        {reveal ? password : '•••• •••• •••• ••••'}
-                    </div>
-                    <div className="flex items-center gap-1 pr-1">
+            <div className="bg-black/40 rounded-lg border border-black/20 p-1 flex items-stretch h-12 shadow-inner mb-3">
+                <div className={`flex-1 font-mono text-sm flex items-center px-3 tracking-wider overflow-hidden ${reveal ? 'text-emerald-400' : 'text-slate-600'}`}>
+                    {reveal ? password : '•••• •••• •••• ••••'}
+                </div>
+                <div className="flex items-center gap-1 pr-1">
+                    <button 
+                        onClick={toggleReveal}
+                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                    >
+                        {reveal ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                    {reveal && (
                         <button 
-                            onClick={toggleReveal}
-                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                            onClick={copy}
+                            className="w-8 h-8 flex items-center justify-center rounded bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
                         >
-                            {reveal ? <EyeOff size={16} /> : <Eye size={16} />}
+                            <Copy size={16} />
                         </button>
-                        {reveal && (
-                            <button 
-                                onClick={() => copy(password)}
-                                className="w-8 h-8 flex items-center justify-center rounded bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
-                            >
-                                <Copy size={16} />
-                            </button>
-                        )}
-                    </div>
+                    )}
                 </div>
+            </div>
 
-                {/* Meta footer */}
-                <div className="mt-4 flex items-center gap-3 text-[10px] uppercase font-bold text-slate-600 tracking-wider">
-                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500/50"></span> v{config.version}</span>
-                    <span>•</span>
-                    <span>{config.length} BITS</span>
-                    <span>•</span>
-                    <span>{config.useSymbols ? 'ALPHANUM+SYM' : 'ALPHANUM'}</span>
-                </div>
+             <div className="flex items-center gap-3 text-[10px] uppercase font-bold text-slate-600 tracking-wider">
+                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500/50"></span> v{config.version}</span>
+                <span>•</span>
+                <span>{config.length} BITS</span>
             </div>
         </div>
     );

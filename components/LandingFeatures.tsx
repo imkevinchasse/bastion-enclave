@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Archive, Network, Cpu, Atom, Activity, Lock, FileCode2, Zap, X, Terminal, ShieldCheck, Database, FileKey, Share2 } from 'lucide-react';
 
@@ -30,7 +31,7 @@ const FEATURES = [
     icon: <Cpu size={28} className="text-violet-400" />,
     title: "Neural Auditor",
     short: "Run AI security checks offline on your own GPU.",
-    specs: ["TINYLLAMA 1.1B", "WEBGPU", "AIR-GAPPED"]
+    specs: ["TINYLLAMA 1.1B", "WEBGPU", "AIR-GAPPED LOGIC"]
   }
 ];
 
@@ -79,9 +80,9 @@ const GLOSSARY: Record<string, { title: string, body: string }> = {
         title: "Web Graphics Processing Unit",
         body: "A modern web API that gives the browser direct access to your computer's graphics card. This allows Bastion to perform billions of parallel calculations for AI inference and encryption acceleration locally."
     },
-    "AIR-GAPPED": {
-        title: "Air-Gapped by Default",
-        body: "A security measure where a system is physically isolated from unsecured networks. Bastion simulates this by ensuring no sensitive data requires a network request to process. You can use the app while offline."
+    "AIR-GAPPED LOGIC": {
+        title: "Offline-Capable Logic",
+        body: "While Bastion is delivered via the web (HTTPS), the application logic is designed to function without further network requests. You can disconnect your internet after loading the page and the vault will function perfectly."
     }
 };
 

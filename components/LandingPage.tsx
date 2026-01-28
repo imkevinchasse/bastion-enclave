@@ -4,7 +4,7 @@ import { TopNav } from './TopNav';
 import { LandingFeatures } from './LandingFeatures';
 import { Button } from './Button';
 import { BrandLogo } from './BrandLogo';
-import { ArrowRight, BookOpen, ShieldCheck, ServerOff, Scaling, Zap, Lock, HeartHandshake, Code2, Database, HardDrive, FileJson, Binary, CheckCircle, XCircle, AlertTriangle, Shield, Terminal, Coffee } from 'lucide-react';
+import { ArrowRight, HeartHandshake, Zap, HardDrive, FileJson, Binary, Shield, ServerOff, Scaling, Coffee } from 'lucide-react';
 import { PublicPage } from '../types';
 
 interface LandingPageProps {
@@ -71,21 +71,19 @@ gxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkw
 };
 
 const COMPARISON_DATA = [
-    { feature: "Offline‑First Storage", bastion: "✅ Yes (local only)", lp: "❌ Cloud default", bw: "❌ Cloud default", op: "❌ Cloud default", kp: "✅ Yes" },
-    { feature: "Zero‑Knowledge Architecture", bastion: "✅ Yes (Verified)", lp: "⚠ Claimed", bw: "✅ Yes", op: "✅ Yes", kp: "✅ Yes (Local)" },
+    { feature: "Offline‑First Storage", bastion: "✅ Yes (Local Storage)", lp: "❌ Cloud default", bw: "❌ Cloud default", op: "❌ Cloud default", kp: "✅ Yes" },
+    { feature: "Zero‑Knowledge Architecture", bastion: "✅ Yes (Verified)", lp: "⚠ Claimed", bw: "✅ Yes", op: "✅ Yes", kp: "✅ Yes" },
     { feature: "No Central Server Vault", bastion: "✅ Yes (Serverless)", lp: "❌ Yes (cloud backups)", bw: "❌ Yes (cloud/self)", op: "❌ Yes (cloud)", kp: "✅ Yes" },
-    { feature: "No Browser Autofill Exposure", bastion: "✅ Yes (Immune)", lp: "❌ Browser Extension", bw: "❌ Browser Extension", op: "❌ Browser Extension", kp: "⚠ Varies" },
+    { feature: "Browser Autofill Exposure", bastion: "✅ Resistant (Manual)", lp: "❌ High Risk", bw: "❌ Browser Extension", op: "❌ Browser Extension", kp: "⚠ Varies" },
     { feature: "Seed + Password + Resonance", bastion: "✅ Yes (Multi-Factor)", lp: "❌ Standard Master Pwd", bw: "❌ Standard Master Pwd", op: "❌ Pwd + Secret Key", kp: "❌ Standard Master Pwd" },
     { feature: "Encryption Standard", bastion: "AES‑256‑GCM", lp: "AES‑256 (CBC/GCM)", bw: "AES‑256 (CBC/GCM)", op: "AES‑256 (GCM)", kp: "AES / ChaCha20" },
-    { feature: "Key Derivation Resilience", bastion: "High / Custom", lp: "PBKDF2 Default", bw: "PBKDF2 / Argon2id", op: "PBKDF2 + Secret", kp: "Argon2 / Configurable" },
-    { feature: "Self‑Hosting Option", bastion: "✅ Client-Side (Easy)", lp: "❌", bw: "✅ Yes (Docker)", op: "❌", kp: "✅ Yes" },
+    { feature: "Self‑Hosting Option", bastion: "✅ Static Export", lp: "❌", bw: "✅ Yes (Docker)", op: "❌", kp: "✅ Yes" },
     { feature: "Open Source / Auditable", bastion: "✅ Open Protocol", lp: "❌ Closed Source", bw: "✅ Yes (AGPL)", op: "❌ Closed Source", kp: "✅ Yes (GPL)" },
     { feature: "Multi‑Platform Support", bastion: "✅ Universal PWA", lp: "✅ All Devices", bw: "✅ All Devices", op: "✅ All Devices", kp: "⚠ Varies by Client" },
-    { feature: "Breach Monitoring", bastion: "❌ (Air-Gapped)", lp: "✅ Yes (Cloud)", bw: "✅ Yes (Premium)", op: "✅ Yes (Watchtower)", kp: "❌" },
+    { feature: "Breach Monitoring", bastion: "❌ (Offline Only)", lp: "✅ Yes (Cloud)", bw: "✅ Yes (Premium)", op: "✅ Yes (Watchtower)", kp: "❌" },
     { feature: "AI Security Analysis", bastion: "✅ On-Device LLM", lp: "❌", bw: "❌", op: "❌", kp: "❌" },
     { feature: "Cost Model", bastion: "✅ Free / Donation", lp: "❌ Subscription", bw: "✅ Freemium", op: "❌ Subscription", kp: "✅ Free" },
     { feature: "History of Cloud Breaches", bastion: "🚫 N/A (No Cloud)", lp: "❌ Multiple Known", bw: "✅ None Known", op: "✅ None Known", kp: "🚫 N/A" },
-    { feature: "Browser Clickjacking Risk", bastion: "🚫 Immune", lp: "⚠ High (DOM Access)", bw: "⚠ High (DOM Access)", op: "⚠ High (DOM Access)", kp: "🚫 Low" },
 ];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
@@ -124,7 +122,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                     </h1>
                     
                     <p className="text-xl text-slate-400 font-light leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                        Zero-knowledge security. Offline-first. Your data, your control.
+                        Zero-knowledge security. Client-side encryption. Your data, your control.
                     </p>
                     
                     <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-4">
@@ -271,7 +269,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                          <h2 className="text-3xl font-bold text-white">Bastion Enclave</h2>
                          <p className="text-lg text-slate-400 leading-relaxed">
                             With a modular design—Chaos Engine™, Locker, Shadow Rolodex, and Neural Auditor—Bastion provides a fortress for your digital life. 
-                            All offline, all encrypted, all under your control.
+                            All client-side, all encrypted, all under your control.
                          </p>
                     </div>
                 </div>
@@ -285,7 +283,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                     </div>
                     <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">The Honest Comparison</h2>
                     <p className="text-slate-400 max-w-2xl mx-auto text-lg">
-                        See how Bastion's offline-first architecture stacks up against traditional cloud-based password managers.
+                        See how Bastion's architecture stacks up against traditional cloud-based password managers.
                     </p>
                 </div>
 
@@ -329,7 +327,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 <div className="grid md:grid-cols-3 gap-8">
                     <div className="bg-slate-900/50 p-8 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition-colors">
                         <ServerOff size={32} className="text-indigo-400 mb-6" />
-                        <h3 className="text-xl font-bold text-white mb-3">Offline-First Advantage</h3>
+                        <h3 className="text-xl font-bold text-white mb-3">Offline-Capable</h3>
                         <p className="text-slate-400">Protects users from breaches, leaks, and cloud dependency. Zero infrastructure cost for storage.</p>
                     </div>
                     <div className="bg-slate-900/50 p-8 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition-colors">

@@ -1,3 +1,4 @@
+
 import { VaultState, Resonance } from "../types";
 
 const ITERATIONS = 100_000;
@@ -256,6 +257,8 @@ export class ChaosEngine {
     length: number;
     useSymbols: boolean;
   }): Promise<string> {
+    
+    // Construct Salt: Includes Service, Username, Version.
     const salt = `FORTRESS_V1::${ctx.name.toLowerCase()}::${ctx.username.toLowerCase()}::v${ctx.version}`;
     const buf = await this.flux(master, salt);
 

@@ -1,4 +1,5 @@
 
+
 export interface VaultConfig {
   id: string;
   name: string; // Service Name
@@ -85,7 +86,6 @@ export enum AppTab {
   AUDITOR = 'AUDITOR',
   EXTENSIONS = 'EXTENSIONS',
   SANDBOX = 'SANDBOX',
-  GAME = 'GAME',
   NEWS = 'NEWS',
 }
 

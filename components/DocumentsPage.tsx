@@ -24,6 +24,15 @@ const DOCUMENTS = [
 ];
 
 export const DocumentsPage: React.FC<DocumentsPageProps> = ({ onNavigate }) => {
+  
+  const handleContact = () => {
+      // Security: Email is base64 encoded to prevent automated scraping of the source code.
+      // Decoded: research@bastion.os
+      const encoded = "cmVzZWFyY2hAYmFzdGlvbi5vcw==";
+      const email = atob(encoded);
+      window.location.href = `mailto:${email}?subject=Security%20Research%20Submission`;
+  };
+
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-slate-950 font-sans text-slate-200">
         
@@ -115,11 +124,9 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({ onNavigate }) => {
                         <p className="text-slate-400 text-sm">Have a security finding? We participate in responsible disclosure.</p>
                     </div>
                 </div>
-                <a href="mailto:research@bastion.os?subject=Security%20Research%20Submission">
-                    <Button variant="ghost">
-                        <Mail size={18} /> Submit via Email
-                    </Button>
-                </a>
+                <Button variant="ghost" onClick={handleContact}>
+                    <Mail size={18} /> Submit via Email
+                </Button>
             </div>
         </div>
     </div>

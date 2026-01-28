@@ -24,6 +24,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   
   // Local Storage State
   const [localVaultFound, setLocalVaultFound] = useState(false);
@@ -44,15 +45,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
       }
   }, []);
 
-  const clearLocalVault = () => {
-      if (confirm("Remove this vault from this browser? You will need your Backup File to log in again.")) {
-          localStorage.removeItem('BASTION_VAULT');
-          localStorage.removeItem('BASTION_MAX_VERSION');
-          setBlob('');
-          setLocalVaultFound(false);
-          setTab('create');
-          setPassword('');
-      }
+  const confirmClearLocalVault = () => {
+      localStorage.removeItem('BASTION_VAULT');
+      localStorage.removeItem('BASTION_MAX_VERSION');
+      setBlob('');
+      setLocalVaultFound(false);
+      setTab('create');
+      setPassword('');
+      setShowClearConfirm(false);
   };
 
   const generateStrongPassword = () => {
@@ -345,21 +345,34 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
                                         </div>
                                     )}
 
-                                    <div className="flex gap-2">
-                                        {localVaultFound && (
-                                            <button 
-                                                type="button" 
-                                                onClick={clearLocalVault}
-                                                className="p-3 rounded-xl border border-white/10 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                                                title="Clear local data"
-                                            >
-                                                <Trash2 size={20} />
-                                            </button>
-                                        )}
-                                        <Button type="submit" className={`w-full h-12 text-lg shadow-lg ${isSeed ? 'shadow-emerald-500/20 bg-emerald-600 hover:bg-emerald-500' : 'shadow-indigo-500/20'}`} isLoading={loading}>
-                                            {isSeed ? 'Recover Identity' : 'Unlock Vault'}
-                                        </Button>
-                                    </div>
+                                    {showClearConfirm ? (
+                                        <div className="p-4 bg-red-950/30 border border-red-500/30 rounded-xl animate-in fade-in slide-in-from-bottom-2">
+                                            <div className="text-red-400 text-xs font-bold text-center mb-3">
+                                                Remove local vault from this device?
+                                                <div className="text-[10px] opacity-70 font-normal mt-1 text-slate-400">Ensure you have a backup. This cannot be undone.</div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button type="button" variant="ghost" onClick={() => setShowClearConfirm(false)} className="flex-1 h-9 text-xs border border-white/5 bg-slate-900">Cancel</Button>
+                                                <Button type="button" variant="danger" onClick={confirmClearLocalVault} className="flex-1 h-9 text-xs">Yes, Remove</Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            {localVaultFound && (
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setShowClearConfirm(true)}
+                                                    className="p-3 rounded-xl border border-white/10 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                    title="Clear local data"
+                                                >
+                                                    <Trash2 size={20} />
+                                                </button>
+                                            )}
+                                            <Button type="submit" className={`w-full h-12 text-lg shadow-lg ${isSeed ? 'shadow-emerald-500/20 bg-emerald-600 hover:bg-emerald-500' : 'shadow-indigo-500/20'}`} isLoading={loading}>
+                                                {isSeed ? 'Recover Identity' : 'Unlock Vault'}
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             </form>
                         ) : (

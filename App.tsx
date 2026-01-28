@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { AuthScreen } from './components/AuthScreen';
@@ -9,13 +10,12 @@ import { Locker } from './components/Locker';
 import { Contacts } from './components/Contacts';
 import { Extensions } from './components/Extensions';
 import { Sandbox } from './components/Sandbox';
-import { SecurityGame } from './components/SecurityGame';
 import { NewsPage } from './components/NewsPage';
 import { DocumentsPage } from './components/DocumentsPage';
 import { GamePage } from './components/GamePage';
 import { VaultConfig, AppTab, VaultState, Note, Resonance, Contact, PublicPage } from './types';
 import { ChaosLock } from './services/cryptoService';
-import { Shield, Key, Boxes, LogOut, Terminal, Copy, Check, Save, Layers, Cpu, DatabaseZap, Book, FileLock2, Users, Download, AlertTriangle, Blocks, Fingerprint, History, AlertOctagon, RefreshCw, FlaskConical, Gamepad2 } from 'lucide-react';
+import { Shield, Key, Boxes, LogOut, Terminal, Copy, Check, Save, Layers, Cpu, DatabaseZap, Book, FileLock2, Users, Download, AlertTriangle, Blocks, Fingerprint, History, AlertOctagon, RefreshCw, FlaskConical } from 'lucide-react';
 import { Button } from './components/Button';
 import { BrandLogo } from './components/BrandLogo';
 
@@ -261,7 +261,7 @@ HOW TO RESTORE:
 
   return (
     <div className="min-h-screen text-slate-200 font-sans selection:bg-indigo-500/30 pb-20 bg-hex relative overflow-hidden">
-      {/* Security Overlay Layer */}
+      {/* Security Overlay Layer - Set z-0 to avoid blocking clicks */}
       <div className="fixed inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/90 to-slate-950 pointer-events-none z-0"></div>
       <div className="fixed inset-0 pointer-events-none z-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/40 via-transparent to-transparent"></div>
 
@@ -296,8 +296,8 @@ HOW TO RESTORE:
           </div>
       )}
 
-      {/* HUD Header */}
-      <header className={`sticky top-0 z-50 backdrop-blur-md bg-slate-950/70 border-b border-white/5 supports-[backdrop-filter]:bg-slate-950/40 transition-all duration-500 ${rollbackAlert ? 'blur-sm grayscale opacity-50 pointer-events-none' : ''}`}>
+      {/* HUD Header (Internal) - Z-Index lowered to 40 */}
+      <header className={`sticky top-0 z-40 backdrop-blur-md bg-slate-950/70 border-b border-white/5 supports-[backdrop-filter]:bg-slate-950/40 transition-all duration-500 ${rollbackAlert ? 'blur-sm grayscale opacity-50 pointer-events-none' : ''}`}>
         <div className="max-w-6xl mx-auto px-4 py-3">
             <div className="flex items-center justify-between gap-4">
                 
@@ -310,7 +310,7 @@ HOW TO RESTORE:
                     </div>
                 </div>
                 
-                {/* Desktop Nav */}
+                {/* Desktop Nav (Internal) */}
                 <div className="flex items-center gap-6">
                     <nav className="hidden md:flex bg-slate-900/50 p-1 rounded-xl border border-white/5 backdrop-blur-sm">
                         <NavButton active={currentTab === AppTab.VAULT} onClick={() => setCurrentTab(AppTab.VAULT)} icon={<Fingerprint size={14} />}>Logins</NavButton>
@@ -319,7 +319,6 @@ HOW TO RESTORE:
                         <NavButton active={currentTab === AppTab.LOCKER} onClick={() => setCurrentTab(AppTab.LOCKER)} icon={<FileLock2 size={14} />}>Locker</NavButton>
                         <NavButton active={currentTab === AppTab.SANDBOX} onClick={() => setCurrentTab(AppTab.SANDBOX)} icon={<FlaskConical size={14} />}>Sandbox</NavButton>
                         <NavButton active={currentTab === AppTab.AUDITOR} onClick={() => setCurrentTab(AppTab.AUDITOR)} icon={<Cpu size={14} />}>AI</NavButton>
-                        <NavButton active={currentTab === AppTab.GAME} onClick={() => setCurrentTab(AppTab.GAME)} icon={<Gamepad2 size={14} />}>Challenge</NavButton>
                     </nav>
                     <button 
                         onClick={handleUnmount} 
@@ -396,15 +395,14 @@ HOW TO RESTORE:
         </div>
       </header>
 
-      {/* Mobile Nav Bottom */}
-      <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/90 backdrop-blur-xl border-t border-white/10 p-2 grid grid-cols-7 gap-1 transition-all duration-500 ${rollbackAlert ? 'blur-sm grayscale opacity-50 pointer-events-none' : ''}`}>
+      {/* Mobile Nav Bottom (Internal) */}
+      <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/90 backdrop-blur-xl border-t border-white/10 p-2 grid grid-cols-6 gap-1 transition-all duration-500 ${rollbackAlert ? 'blur-sm grayscale opacity-50 pointer-events-none' : ''}`}>
          <MobileNavBtn active={currentTab === AppTab.VAULT} onClick={() => setCurrentTab(AppTab.VAULT)} icon={<Fingerprint size={16} />} label="Logins" />
          <MobileNavBtn active={currentTab === AppTab.NOTES} onClick={() => setCurrentTab(AppTab.NOTES)} icon={<Book size={16} />} label="Notebook" />
          <MobileNavBtn active={currentTab === AppTab.CONTACTS} onClick={() => setCurrentTab(AppTab.CONTACTS)} icon={<Users size={16} />} label="People" />
          <MobileNavBtn active={currentTab === AppTab.LOCKER} onClick={() => setCurrentTab(AppTab.LOCKER)} icon={<FileLock2 size={16} />} label="Files" />
          <MobileNavBtn active={currentTab === AppTab.SANDBOX} onClick={() => setCurrentTab(AppTab.SANDBOX)} icon={<FlaskConical size={16} />} label="Sandbox" />
          <MobileNavBtn active={currentTab === AppTab.AUDITOR} onClick={() => setCurrentTab(AppTab.AUDITOR)} icon={<Cpu size={16} />} label="AI" />
-         <MobileNavBtn active={currentTab === AppTab.GAME} onClick={() => setCurrentTab(AppTab.GAME)} icon={<Gamepad2 size={16} />} label="Play" />
       </div>
 
       <main className={`max-w-4xl mx-auto px-4 py-8 relative z-10 transition-all duration-500 ${rollbackAlert ? 'blur-md pointer-events-none opacity-50 select-none grayscale' : ''}`}>
@@ -415,7 +413,6 @@ HOW TO RESTORE:
         {currentTab === AppTab.SANDBOX && <Sandbox />}
         {currentTab === AppTab.AUDITOR && <AIAuditor />}
         {currentTab === AppTab.EXTENSIONS && <Extensions />}
-        {currentTab === AppTab.GAME && <SecurityGame />}
       </main>
     </div>
   );
