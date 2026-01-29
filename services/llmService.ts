@@ -85,42 +85,47 @@ Suggestions: [Tip 1, Tip 2]`;
 
 /**
  * PHISHING & SOCIAL ENGINEERING DETECTION
- * Analyzes text for manipulative patterns.
+ * Analyzes text for manipulative patterns using Gain/Loss framing.
  */
 export const runPhishingAnalysis = async (text: string): Promise<PhishingResult> => {
     if (!engine) throw new Error("Engine not initialized");
 
-    // Capture explicit signals from footer (address, unsubscribe)
     const truncated = text.substring(0, 2000);
 
-    const prompt = `Classify this email.
+    // Advanced Chain-of-Thought Prompt for TinyLlama
+    const prompt = `Role: Security Analyst.
+Task: Classify this email based on INTENT and CONSEQUENCE.
 
-Input Text: "${truncated}"
+Input Text:
+"${truncated}"
 
-Instructions:
-1. Identify INTENT.
-   - Selling a product, discount, course, or subscription? -> RISK: SAFE (Marketing)
-   - Threatening arrest, account ban, seizure of funds, or demanding password? -> RISK: DANGEROUS (Phishing)
+ANALYSIS RULES:
+1.  **GAIN FRAME (Marketing)**:
+    *   Promise: "Save money", "Get a discount", "Upgrade now".
+    *   Threat: "Offer expires", "Price goes up".
+    *   VERDICT: SAFE.
 
-2. Analyze URGENCY type.
-   - "Sale ends today" / "50% off now" -> SAFE.
-   - "Verify account now" / "Your funds will be seized" -> DANGEROUS.
+2.  **LOSS FRAME (Phishing/Extortion)**:
+    *   Promise: "Avoid deletion", "Restore access", "Stop legal action".
+    *   Threat: "Account deleted", "Funds seized", "Police warrant", "Payment failed".
+    *   VERDICT: DANGEROUS.
 
-3. Output Format.
-   Risk: [SAFE / SUSPICIOUS / DANGEROUS]
-   Confidence: [0-100]
-   Indicators: [List triggers]
-   Analysis: [Reasoning]
+3.  **SPECIFIC TRIGGERS**:
+    *   "Subscription ID" + "Payment Failed" = DANGEROUS (Fake Invoice Scam).
+    *   "US Customs" + "Consignment" = DANGEROUS (Government Impersonation).
+    *   "% OFF" + "Ends Today" = SAFE (Standard Marketing).
 
-Examples:
-- "50% off Cambly subscription, ends tomorrow" -> Risk: SAFE
-- "Customs seized your package, pay fee now" -> Risk: DANGEROUS`;
+OUTPUT FORMAT:
+Risk: [SAFE / SUSPICIOUS / DANGEROUS]
+Confidence: [0-100]
+Indicators: [Trigger 1, Trigger 2]
+Analysis: [Explain if it is a Gain Frame (Sale) or Loss Frame (Threat)]`;
 
     try {
         const response = await engine.chat.completions.create({
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 200, // Short output
-            temperature: 0.1,
+            max_tokens: 250,
+            temperature: 0.1, // Low temp for rule adherence
         });
 
         const content = response.choices[0].message.content || "";
@@ -242,37 +247,42 @@ function parseAuditOutput(text: string): AuditResult {
  * Robustly parses model output for Phishing Analysis.
  */
 function parsePhishingOutput(text: string): PhishingResult {
-    const riskMatch = text.match(/(?:risk|threat)[\s:*=]+(SAFE|SUSPICIOUS|DANGEROUS)/i);
+    const riskMatch = text.match(/(?:risk|threat)[\s:*=]+(SAFE|SUSPICIOUS|DANGEROUS|HIGH|CRITICAL|LOW)/i);
     const confMatch = text.match(/(?:confidence|prob)[\s:*=]+(\d+)/i);
-    const analysisMatch = text.match(/(?:analysis|summary)[\s:*=]+([^\n]+)/i);
+    const analysisMatch = text.match(/(?:analysis|summary|reasoning)[\s:*=]+([^\n]+)/i);
     
     const indicators: string[] = [];
-    // Extract indicators from lines or comma lists
+    
+    // Improved Indicator Extraction
     if (text.includes("Indicators:")) {
         const indSection = text.split("Indicators:")[1].split("\n")[0];
         indSection.split(/,|;/).forEach(i => {
             const clean = i.replace(/[\[\]]/g, '').trim();
-            if (clean) indicators.push(clean);
+            if (clean && clean.length > 3) indicators.push(clean);
         });
     }
 
     let riskLevel: 'SAFE' | 'SUSPICIOUS' | 'DANGEROUS' = 'SUSPICIOUS';
     
     if (riskMatch) {
-        riskLevel = riskMatch[1].toUpperCase() as any;
+        const rawRisk = riskMatch[1].toUpperCase();
+        if (rawRisk === 'SAFE' || rawRisk === 'LOW') riskLevel = 'SAFE';
+        else if (rawRisk === 'DANGEROUS' || rawRisk === 'HIGH' || rawRisk === 'CRITICAL') riskLevel = 'DANGEROUS';
+        else riskLevel = 'SUSPICIOUS';
     } else {
-        // Keyword fallback if model format breaks
+        // Semantic Fallback
         const lower = text.toLowerCase();
-        if (lower.includes('safe') || lower.includes('marketing')) riskLevel = 'SAFE';
-        else if (lower.includes('dangerous') || lower.includes('phish') || lower.includes('scam')) riskLevel = 'DANGEROUS';
+        if (lower.includes('risk: safe') || lower.includes('verdict: safe')) riskLevel = 'SAFE';
+        else if (lower.includes('risk: dangerous') || lower.includes('verdict: dangerous')) riskLevel = 'DANGEROUS';
     }
 
-    // Safety Override: If keywords imply marketing but model said Dangerous, check context
+    // Safety Override: Double-check logic for known marketing patterns vs threats
     if (riskLevel === 'DANGEROUS') {
         const lower = text.toLowerCase();
-        if (lower.includes('marketing') && lower.includes('safe')) {
-             // Model hallucinated danger but reasoning says marketing
-             riskLevel = 'SAFE'; 
+        // If it says dangerous but reasoning mentions "discount" or "sale" exclusively, it might be a false positive
+        if (lower.includes('discount') && lower.includes('sale') && !lower.includes('account') && !lower.includes('payment')) {
+             // Downgrade to Suspicious to be safe, but likely Safe
+             // riskLevel = 'SAFE'; // (Commented out: Better safe than sorry, let user decide if ambiguous)
         }
     }
 
@@ -280,6 +290,6 @@ function parsePhishingOutput(text: string): PhishingResult {
         riskLevel,
         confidence: confMatch ? parseInt(confMatch[1], 10) : 85,
         indicators: indicators.length > 0 ? indicators : ["Content Analysis"],
-        analysis: analysisMatch ? analysisMatch[1].trim() : text.substring(0, 100) + "..."
+        analysis: analysisMatch ? analysisMatch[1].trim() : text.substring(0, 150).replace(/\n/g, ' ') + "..."
     };
 }
