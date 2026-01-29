@@ -1,0 +1,46 @@
+<svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="core_grad" x1="50" y1="35" x2="50" y2="65" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#6366f1" />
+            <stop offset="1" stop-color="#818cf8" />
+        </linearGradient>
+        <linearGradient id="shell_grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#334155" />
+            <stop offset="1" stop-color="#1e293b" />
+        </linearGradient>
+        <filter id="glow_core" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+    </defs>
+
+    <!-- LAYER 3: OUTER SHELL (The Vault) -->
+    <!-- Top Face -->
+    <path d="M50 5 L90 25 L50 45 L10 25 Z" fill="none" stroke="#475569" stroke-width="2" stroke-linejoin="round" />
+    <!-- Right Face -->
+    <path d="M90 25 L90 65 L50 85 L50 45 Z" fill="url(#shell_grad)" fill-opacity="0.2" stroke="#475569" stroke-width="2" stroke-linejoin="round" />
+    <!-- Left Face -->
+    <path d="M10 25 L50 45 L50 85 L10 65 Z" fill="url(#shell_grad)" fill-opacity="0.2" stroke="#475569" stroke-width="2" stroke-linejoin="round" />
+
+    <!-- LAYER 2: THE ALGORITHM (The Iterations) -->
+    <g opacity="0.8">
+        <!-- Connecting Struts -->
+        <path d="M50 45 L50 35" stroke="#6366f1" stroke-width="1" stroke-dasharray="2 2" />
+        <path d="M90 25 L75 32.5" stroke="#6366f1" stroke-width="1" stroke-dasharray="2 2" />
+        <path d="M10 25 L25 32.5" stroke="#6366f1" stroke-width="1" stroke-dasharray="2 2" />
+        <path d="M50 85 L50 70" stroke="#6366f1" stroke-width="1" stroke-dasharray="2 2" />
+
+        <!-- Middle Cube Wireframe -->
+        <path d="M50 20 L75 32.5 L50 45 L25 32.5 Z" stroke="#6366f1" stroke-width="1.5" fill="none" />
+        <path d="M75 32.5 L75 57.5 L50 70 L50 45" stroke="#6366f1" stroke-width="1.5" fill="none" />
+        <path d="M25 32.5 L25 57.5 L50 70" stroke="#6366f1" stroke-width="1.5" fill="none" />
+    </g>
+
+    <!-- LAYER 1: THE CORE (Entropy) -->
+    <g filter="url(#glow_core)">
+        <!-- Inner Solid Cube -->
+        <path d="M50 35 L62 41 L50 47 L38 41 Z" fill="#4f46e5" />
+        <path d="M62 41 L62 53 L50 59 L50 47 Z" fill="#4338ca" />
+        <path d="M38 41 L50 47 L50 59 L38 53 Z" fill="#3730a3" />
+    </g>
+</svg>

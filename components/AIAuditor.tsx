@@ -1,146 +1,303 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
-import { initLLM, runLocalAudit } from '../services/llmService';
-import { AuditResult, SecurityLevel, LLMStatus } from '../types';
-import { BrainCircuit, AlertTriangle, CheckCircle, Download, Cpu, Activity, ScanLine, Shield } from 'lucide-react';
+import { initLLM, runCredentialAudit, runPhishingAnalysis } from '../services/llmService';
+import { AuditResult, SecurityLevel, LLMStatus, PhishingResult } from '../types';
+import { BrainCircuit, AlertTriangle, CheckCircle, Download, Activity, ScanLine, Shield, Mail, Lock, User, Globe, AlertOctagon, Terminal, Eye, MessageSquare, Key } from 'lucide-react';
+
+type AnalysisMode = 'credential' | 'phishing';
 
 export const AIAuditor: React.FC = () => {
-  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<AnalysisMode>('credential');
   const [llmStatus, setLlmStatus] = useState<LLMStatus>({ status: 'idle', progress: 0, message: '' });
-  const [result, setResult] = useState<AuditResult | null>(null);
+  
+  // Credential State
+  const [password, setPassword] = useState('');
+  const [service, setService] = useState('');
+  const [username, setUsername] = useState('');
+  const [credResult, setCredResult] = useState<AuditResult | null>(null);
+
+  // Phishing State
+  const [phishText, setPhishText] = useState('');
+  const [phishResult, setPhishResult] = useState<PhishingResult | null>(null);
+
+  // Auto-init on mount
+  useEffect(() => {
+      loadModel();
+  }, []);
 
   const loadModel = async () => {
+    if (llmStatus.status === 'ready' || llmStatus.status === 'loading') return;
+
     setLlmStatus({ status: 'loading', progress: 0, message: 'Initializing WebGPU Compute Shader...' });
     try {
       await initLLM((progressText) => {
-        setLlmStatus({ status: 'loading', progress: 1, message: progressText });
+        // Parse progress from text if possible, otherwise just show text
+        setLlmStatus(prev => ({ ...prev, status: 'loading', message: progressText }));
       });
       setLlmStatus({ status: 'ready', progress: 100, message: 'TinyLlama Neural Network Active' });
-    } catch (e) {
-      setLlmStatus({ status: 'error', progress: 0, message: 'GPU Initialization Failed' });
+    } catch (e: any) {
+      setLlmStatus({ status: 'error', progress: 0, message: e.message || 'GPU Initialization Failed' });
     }
   };
 
-  const handleAudit = async () => {
+  const handleCredentialAudit = async () => {
     if (!password || llmStatus.status !== 'ready') return;
-    setLlmStatus({ ...llmStatus, status: 'loading', message: 'Inference Running...' });
+    setLlmStatus(prev => ({ ...prev, status: 'loading', message: 'Running Inference...' }));
     
     try {
-        const data = await runLocalAudit(password);
-        setResult(data);
-        setLlmStatus({ ...llmStatus, status: 'ready', message: 'Analysis complete' });
+        const result = await runCredentialAudit(password, service, username);
+        setCredResult(result);
+        setLlmStatus(prev => ({ ...prev, status: 'ready', message: 'Analysis Complete' }));
     } catch (e) {
-        setLlmStatus({ status: 'error', progress: 0, message: 'Audit failed.' });
+        setLlmStatus(prev => ({ ...prev, status: 'error', message: 'Inference Error' }));
     }
   };
 
-  const getLevelColor = (level: SecurityLevel) => {
-    switch(level) {
-        case SecurityLevel.CRITICAL: return 'from-red-500/20 to-red-900/20 border-red-500/30 text-red-400';
-        case SecurityLevel.LOW: return 'from-orange-500/20 to-orange-900/20 border-orange-500/30 text-orange-400';
-        case SecurityLevel.MEDIUM: return 'from-yellow-500/20 to-yellow-900/20 border-yellow-500/30 text-yellow-400';
-        case SecurityLevel.HIGH: return 'from-emerald-500/20 to-emerald-900/20 border-emerald-500/30 text-emerald-400';
-    }
+  const handlePhishingScan = async () => {
+      if (!phishText || llmStatus.status !== 'ready') return;
+      setLlmStatus(prev => ({ ...prev, status: 'loading', message: 'Scanning Patterns...' }));
+
+      try {
+          const result = await runPhishingAnalysis(phishText);
+          setPhishResult(result);
+          setLlmStatus(prev => ({ ...prev, status: 'ready', message: 'Scan Complete' }));
+      } catch (e) {
+          setLlmStatus(prev => ({ ...prev, status: 'error', message: 'Inference Error' }));
+      }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return 'text-emerald-400 border-emerald-500/50 bg-emerald-500/10';
+    if (score >= 70) return 'text-blue-400 border-blue-500/50 bg-blue-500/10';
+    if (score >= 50) return 'text-amber-400 border-amber-500/50 bg-amber-500/10';
+    return 'text-red-400 border-red-500/50 bg-red-500/10';
   };
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-8">
+    <div className="flex flex-col h-[calc(100vh-12rem)] min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500 gap-6">
         
-        {/* Header Card */}
-        <div className="relative overflow-hidden bg-slate-900 rounded-2xl border border-white/10 p-6 flex gap-5 items-center">
-            <div className="absolute right-0 top-0 p-32 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-            
-            <div className="w-16 h-16 rounded-xl bg-slate-800 border border-white/5 flex items-center justify-center text-indigo-400 relative z-10 shadow-lg">
-                <BrainCircuit size={32} />
-            </div>
-            <div className="relative z-10">
-                <h3 className="text-xl font-bold text-white tracking-tight">Local Neural Audit</h3>
-                <p className="text-slate-400 text-sm mt-1 leading-relaxed max-w-md">
-                    Running <strong>TinyLlama-1.1B</strong> via WebGPU. Zero data egress. Your secrets never leave this browser tab.
+        {/* HEADER & STATUS */}
+        <div className="flex justify-between items-start">
+            <div>
+                <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+                    <BrainCircuit size={28} className="text-violet-400" /> Neural Security Center
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">
+                    On-device AI analysis powered by TinyLlama-1.1B via WebGPU.
                 </p>
+            </div>
+
+            <div className={`flex items-center gap-3 px-4 py-2 rounded-xl border ${llmStatus.status === 'ready' ? 'bg-emerald-900/20 border-emerald-500/30' : llmStatus.status === 'error' ? 'bg-red-900/20 border-red-500/30' : 'bg-slate-900 border-white/10'}`}>
+                {llmStatus.status === 'loading' ? (
+                    <Activity size={18} className="text-indigo-400 animate-spin" />
+                ) : llmStatus.status === 'ready' ? (
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                ) : (
+                    <AlertTriangle size={18} className="text-red-400" />
+                )}
+                <div className="text-right">
+                    <div className={`text-xs font-bold uppercase tracking-widest ${llmStatus.status === 'ready' ? 'text-emerald-400' : 'text-slate-400'}`}>
+                        {llmStatus.status === 'error' ? 'OFFLINE' : llmStatus.status === 'ready' ? 'NEURAL ENGINE ACTIVE' : 'INITIALIZING'}
+                    </div>
+                    {llmStatus.message && <div className="text-[10px] text-slate-500 font-mono max-w-[200px] truncate">{llmStatus.message}</div>}
+                </div>
             </div>
         </div>
 
-        {llmStatus.status === 'idle' || llmStatus.status === 'error' ? (
-             <div className="text-center p-12 border border-dashed border-slate-800 rounded-2xl bg-slate-900/30">
-                <div className="mb-4 text-slate-500 text-sm">Model weights (~800MB) required for local inference.</div>
-                <Button onClick={loadModel} className="mx-auto px-8" variant={llmStatus.status === 'error' ? 'danger' : 'primary'}>
-                    <Download size={18} /> {llmStatus.status === 'error' ? 'Retry Load' : 'Load Neural Network'}
-                </Button>
-                {llmStatus.status === 'error' && <p className="text-red-400 text-sm mt-4 font-mono">{llmStatus.message}</p>}
-             </div>
-        ) : (
-             <div className="space-y-6">
-                 {/* Status Bar */}
-                 <div className="bg-slate-900 rounded-xl border border-white/5 p-4 flex items-center gap-4">
-                     <div className={`w-3 h-3 rounded-full ${llmStatus.status === 'loading' ? 'bg-amber-400 animate-ping' : 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]'}`} />
-                     <div className="flex-1 font-mono text-xs text-slate-400 uppercase tracking-wider">
-                         {llmStatus.message}
-                     </div>
-                 </div>
-                 
-                 <div className="flex gap-3">
-                    <Input 
-                        type="password" 
-                        placeholder="Paste password for cryptographic analysis..." 
-                        value={password}
-                        onChange={(e) => {
-                            setPassword(e.target.value);
-                            if (result) setResult(null); // Clear stale results when typing
-                        }}
-                        className="font-mono text-sm"
-                        disabled={llmStatus.status !== 'ready'}
-                        icon={<ScanLine size={16} />}
-                    />
-                    <Button onClick={handleAudit} isLoading={llmStatus.status === 'loading'} disabled={!password || llmStatus.status !== 'ready'}>
-                        Analyze
-                    </Button>
-                </div>
-             </div>
-        )}
+        {/* TABS */}
+        <div className="flex gap-4 border-b border-white/5 pb-1">
+            <button 
+                onClick={() => setMode('credential')}
+                className={`flex items-center gap-2 px-6 py-3 rounded-t-xl text-sm font-bold transition-all ${mode === 'credential' ? 'bg-slate-800 text-white border-t border-x border-white/10' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+                <Lock size={16} /> Credential Audit
+            </button>
+            <button 
+                onClick={() => setMode('phishing')}
+                className={`flex items-center gap-2 px-6 py-3 rounded-t-xl text-sm font-bold transition-all ${mode === 'phishing' ? 'bg-slate-800 text-white border-t border-x border-white/10' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+                <MessageSquare size={16} /> Social Engineering
+            </button>
+        </div>
 
-        {result && (
-            <div className="animate-in zoom-in-95 duration-500 space-y-4">
-                {/* Result Hero */}
-                <div className={`relative overflow-hidden p-8 rounded-2xl border bg-gradient-to-br ${getLevelColor(result.level)}`}>
-                    <div className="absolute top-0 right-0 p-24 bg-white/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-                    <div className="relative z-10 flex justify-between items-end">
-                        <div>
-                            <div className="text-xs uppercase tracking-widest font-bold opacity-70 mb-2">Security Classification</div>
-                            <div className="text-4xl font-black tracking-tight">{result.level}</div>
+        {/* MAIN CONTENT AREA */}
+        <div className="flex-1 bg-slate-800/30 rounded-b-2xl rounded-tr-2xl border border-white/5 p-8 relative overflow-hidden">
+            
+            {llmStatus.status === 'error' && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm p-8 text-center">
+                    <AlertTriangle size={48} className="text-red-500 mb-4" />
+                    <h3 className="text-xl font-bold text-white mb-2">Neural Engine Unavailable</h3>
+                    <p className="text-slate-400 max-w-md mb-6">
+                        Your browser does not support WebGPU or the model failed to load. 
+                        Please use Chrome 113+, Edge, or enable <code className="bg-slate-800 px-1 rounded">unsafe-webgpu</code> flags.
+                    </p>
+                    <Button onClick={loadModel} variant="secondary">Retry Initialization</Button>
+                </div>
+            )}
+
+            {mode === 'credential' ? (
+                <div className="grid lg:grid-cols-2 gap-12 h-full">
+                    <div className="space-y-6">
+                        <div className="bg-indigo-900/10 p-4 rounded-xl border border-indigo-500/20 text-indigo-200 text-sm">
+                            <strong className="block mb-1 flex items-center gap-2"><ScanLine size={16}/> Context-Aware Analysis</strong>
+                            Unlike basic checkers, this AI analyzes the relationship between your password and your identity to detect targeted dictionary attacks.
                         </div>
-                        <div className="text-right">
-                             <div className="text-5xl font-black opacity-90">{result.score}</div>
-                             <div className="text-[10px] uppercase font-bold opacity-60 mt-1">Entropy Score</div>
+
+                        <div className="space-y-4">
+                            <Input 
+                                label="Target Service (Optional)" 
+                                placeholder="e.g. PayPal, Gmail" 
+                                value={service}
+                                onChange={e => setService(e.target.value)}
+                                icon={<Globe size={16} />}
+                            />
+                            <Input 
+                                label="Username / Identity (Optional)" 
+                                placeholder="e.g. john.doe" 
+                                value={username}
+                                onChange={e => setUsername(e.target.value)}
+                                icon={<User size={16} />}
+                            />
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password to Audit</label>
+                                <div className="relative">
+                                    <input
+                                        type="password"
+                                        className="w-full bg-slate-900/50 border border-slate-700/50 text-slate-100 rounded-xl py-3 px-4 pl-11 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                                        placeholder="Enter password..."
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                    />
+                                    <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                </div>
+                            </div>
                         </div>
+
+                        <Button 
+                            onClick={handleCredentialAudit} 
+                            isLoading={llmStatus.status === 'loading'}
+                            className="w-full py-4 text-lg"
+                            disabled={!password}
+                        >
+                            Run Deep Audit
+                        </Button>
+                    </div>
+
+                    <div className="bg-slate-900 border border-white/5 rounded-2xl p-6 relative min-h-[300px]">
+                        {!credResult ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 opacity-50">
+                                <Shield size={64} strokeWidth={1} className="mb-4" />
+                                <p className="text-sm font-mono uppercase tracking-widest">Awaiting Input Data</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Security Score</div>
+                                        <div className={`text-4xl font-black ${getScoreColor(credResult.score).split(' ')[0]}`}>
+                                            {credResult.score}/100
+                                        </div>
+                                    </div>
+                                    <div className={`px-4 py-2 rounded-lg border text-sm font-bold uppercase tracking-wider ${getScoreColor(credResult.score)}`}>
+                                        {credResult.level} RISK
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">AI Analysis</div>
+                                    <p className="text-slate-300 text-sm leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5">
+                                        {credResult.analysis}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Recommendations</div>
+                                    <ul className="space-y-2">
+                                        {credResult.suggestions.map((s, i) => (
+                                            <li key={i} className="flex items-start gap-2 text-sm text-slate-400">
+                                                <CheckCircle size={14} className="text-indigo-500 mt-0.5 shrink-0" />
+                                                {s}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
+            ) : (
+                <div className="grid lg:grid-cols-2 gap-12 h-full">
+                    <div className="space-y-6">
+                        <div className="bg-emerald-900/10 p-4 rounded-xl border border-emerald-500/20 text-emerald-200 text-sm">
+                            <strong className="block mb-1 flex items-center gap-2"><Mail size={16}/> Social Engineering Detector</strong>
+                            Paste the content of a suspicious email, SMS, or DM. The AI looks for urgency, authority mimicking, and linguistic manipulation patterns.
+                        </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-slate-900/80 p-6 rounded-2xl border border-white/5 backdrop-blur-sm">
-                        <h4 className="flex items-center gap-2 font-bold text-slate-200 mb-4 text-sm uppercase tracking-wider">
-                            <Activity size={16} className="text-indigo-400" /> Analysis
-                        </h4>
-                        <p className="text-slate-400 text-sm leading-relaxed">{result.analysis}</p>
+                        <textarea 
+                            className="w-full h-64 bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none resize-none placeholder-slate-600"
+                            placeholder="Paste suspicious text here..."
+                            value={phishText}
+                            onChange={e => setPhishText(e.target.value)}
+                        />
+
+                        <Button 
+                            onClick={handlePhishingScan} 
+                            isLoading={llmStatus.status === 'loading'}
+                            className="w-full py-4 text-lg bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20"
+                            disabled={!phishText}
+                        >
+                            Analyze Intent
+                        </Button>
                     </div>
 
-                    <div className="bg-slate-900/80 p-6 rounded-2xl border border-white/5 backdrop-blur-sm">
-                        <h4 className="flex items-center gap-2 font-bold text-slate-200 mb-4 text-sm uppercase tracking-wider">
-                            <Shield size={16} className="text-emerald-400" /> Protocol
-                        </h4>
-                        <ul className="space-y-3">
-                            {result.suggestions.map((s, i) => (
-                                <li key={i} className="flex gap-3 text-sm text-slate-400">
-                                    {result.level === SecurityLevel.HIGH ? <CheckCircle size={16} className="text-emerald-500 shrink-0 mt-0.5" /> : <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />}
-                                    <span>{s}</span>
-                                </li>
-                            ))}
-                        </ul>
+                    <div className="bg-slate-900 border border-white/5 rounded-2xl p-6 relative min-h-[300px]">
+                        {!phishResult ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 opacity-50">
+                                <AlertOctagon size={64} strokeWidth={1} className="mb-4" />
+                                <p className="text-sm font-mono uppercase tracking-widest">Awaiting Text Sample</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                                <div className="flex items-center justify-between border-b border-white/5 pb-6">
+                                    <div className="space-y-1">
+                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Threat Level</div>
+                                        <div className={`text-3xl font-black ${phishResult.riskLevel === 'DANGEROUS' ? 'text-red-500' : phishResult.riskLevel === 'SUSPICIOUS' ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                            {phishResult.riskLevel}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Model Confidence</div>
+                                        <div className="text-xl font-mono text-white">{phishResult.confidence}%</div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Behavioral Analysis</div>
+                                    <p className="text-slate-300 text-sm leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5">
+                                        {phishResult.analysis}
+                                    </p>
+                                </div>
+
+                                {phishResult.indicators.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Detected Triggers</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {phishResult.indicators.map((ind, i) => (
+                                                <span key={i} className="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                                    <AlertTriangle size={10} /> {ind}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
-        )}
+            )}
+        </div>
     </div>
   );
 };

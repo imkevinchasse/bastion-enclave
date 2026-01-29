@@ -372,7 +372,7 @@ public class Bastion extends JFrame {
                     File outFile = new File(f.getParent(), f.getName() + ".bastion");
                     Files.write(outFile.toPath(), res.artifact, StandardOpenOption.CREATE);
                     
-                    String msg = "ENCRYPTED\nKey: " + res.keyHex + "\nSaved to: " + outFile.getName();
+                    String msg = "ENCRYPTED\\nKey: " + res.keyHex + "\\nSaved to: " + outFile.getName();
                     JOptionPane.showMessageDialog(this, msg, "Encryption Successful", JOptionPane.INFORMATION_MESSAGE);
                     statusLabel.setText("Encrypted: " + f.getName());
                 } catch (Exception ex) {
@@ -511,7 +511,7 @@ public class Bastion extends JFrame {
             
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Decryption or Parsing Failed.\nCheck console or verify password.", "Access Denied", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Decryption or Parsing Failed.\\nCheck console or verify password.", "Access Denied", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -738,7 +738,7 @@ public class Bastion extends JFrame {
 
     // --- ENGINES ---
 
-    private static final int ITERATIONS = 100_000;
+    private static final int ITERATIONS = 210_000;
     private static final int GCM_TAG_LENGTH = 128;
     private static final int GCM_IV_LENGTH = 12;
     private static final byte[] MAGIC_BYTES = "BASTION1".getBytes(StandardCharsets.UTF_8);
@@ -757,26 +757,46 @@ public class Bastion extends JFrame {
         }
 
         private static SecretKey deriveKey(String password, byte[] salt) throws Exception {
+            // DOMAIN SEPARATION
+            byte[] domain = "BASTION_VAULT_V1::".getBytes(StandardCharsets.UTF_8);
+            byte[] finalSalt = new byte[domain.length + salt.length];
+            System.arraycopy(domain, 0, finalSalt, 0, domain.length);
+            System.arraycopy(salt, 0, finalSalt, domain.length, salt.length);
+
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, ITERATIONS, 256);
+            KeySpec spec = new PBEKeySpec(password.toCharArray(), finalSalt, ITERATIONS, 256);
             return new SecretKeySpec(factory.generateSecret(spec).getEncoded(), "AES");
         }
 
         public static String transmute(String entropyHex, String name, String username, int version, int length, boolean useSymbols) throws Exception {
-            String salt = "FORTRESS_V1::" + name.toLowerCase() + "::" + username.toLowerCase() + "::v" + version;
+            // DOMAIN SEPARATION
+            String salt = "BASTION_GENERATOR_V2::" + name.toLowerCase() + "::" + username.toLowerCase() + "::v" + version;
+            
+            // FETCH EXTRA BYTES FOR REJECTION SAMPLING
+            int dkLen = length * 32; // Overkill to ensure enough randomness, PBKDF2 allows this. 
+            
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA512");
-            KeySpec spec = new PBEKeySpec(entropyHex.toCharArray(), salt.getBytes(StandardCharsets.UTF_8), ITERATIONS, 512);
+            KeySpec spec = new PBEKeySpec(entropyHex.toCharArray(), salt.getBytes(StandardCharsets.UTF_8), ITERATIONS, dkLen);
             byte[] buffer = factory.generateSecret(spec).getEncoded();
+            
             String alpha = "abcdefghijklmnopqrstuvwxyz";
             String caps = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
             String num = "0123456789";
             String sym = "!@#$%^&*()_+-=[]{}|;:,.<>?";
             String pool = alpha + caps + num + (useSymbols ? sym : "");
+            
+            // REJECTION SAMPLING
+            int limit = 256 - (256 % pool.length());
             StringBuilder out = new StringBuilder();
-            for (int i = 0; i < length; i++) {
-                int b = Byte.toUnsignedInt(buffer[i % buffer.length]);
-                out.append(pool.charAt(b % pool.length()));
+            int i = 0;
+            
+            while(out.length() < length && i < buffer.length) {
+                int b = Byte.toUnsignedInt(buffer[i++]);
+                if (b < limit) {
+                    out.append(pool.charAt(b % pool.length()));
+                }
             }
+            
             return out.toString();
         }
 

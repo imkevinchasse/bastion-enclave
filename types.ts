@@ -1,4 +1,9 @@
 
+export interface BreachStats {
+  status: 'clean' | 'compromised' | 'unknown';
+  lastChecked: number; // Timestamp
+  seenCount: number; // How many times seen in HIBP (0 if clean)
+}
 
 export interface VaultConfig {
   id: string;
@@ -9,6 +14,16 @@ export interface VaultConfig {
   useSymbols: boolean;
   category: 'login' | 'card' | 'note';
   updatedAt: number;
+  customPassword?: string; // Optional: User-defined password (overrides generator)
+  
+  // COMPLIANCE UPDATE: Granular breach tracking
+  breachStats?: BreachStats; 
+  compromised?: boolean; // @deprecated: Kept for migration, use breachStats
+
+  // SORTING & METRICS
+  createdAt?: number; // Timestamp of creation
+  usageCount?: number; // Number of times accessed/copied
+  sortOrder?: number; // User-defined manual order index
 }
 
 export interface Note {
@@ -45,10 +60,18 @@ export interface Resonance {
   key: string; // Hex-encoded 256-bit AES key (THE RESONANCE)
   hash: string; // SHA-256 integrity check of original file
   timestamp: number;
+  embedded?: boolean; // If true, the ciphertext is persisted in the local browser BlobStore
 }
 
 // Legacy alias for compatibility during migration
 export type LockerEntry = Resonance;
+
+// Bitmask flags for Vault Capabilities
+export enum VaultFlags {
+  NONE = 0,
+  DEVELOPER = 1 << 0, // 0x01
+  BETA_FEATURES = 1 << 1, // 0x02
+}
 
 // The complete state of the user's vault
 export interface VaultState {
@@ -61,6 +84,8 @@ export interface VaultState {
   // Security & Integrity Meta
   version: number; // Monotonic counter to detect rollback
   lastModified: number; // Timestamp of last write
+  lastBreachCheck?: number; // Global timestamp of last scan start
+  flags?: number; // Bitmask for vault capabilities (Encrypted)
 }
 
 export enum SecurityLevel {
@@ -77,6 +102,13 @@ export interface AuditResult {
   analysis: string;
 }
 
+export interface PhishingResult {
+  riskLevel: 'SAFE' | 'SUSPICIOUS' | 'DANGEROUS';
+  confidence: number;
+  indicators: string[]; 
+  analysis: string;
+}
+
 export enum AppTab {
   VAULT = 'VAULT',
   NOTES = 'NOTES',
@@ -87,6 +119,7 @@ export enum AppTab {
   EXTENSIONS = 'EXTENSIONS',
   SANDBOX = 'SANDBOX',
   NEWS = 'NEWS',
+  DEVELOPER = 'DEVELOPER'
 }
 
 export interface LLMStatus {
@@ -95,4 +128,4 @@ export interface LLMStatus {
   message: string;
 }
 
-export type PublicPage = 'landing' | 'auth' | 'news' | 'documents' | 'game';
+export type PublicPage = 'landing' | 'auth' | 'news' | 'documents' | 'game' | 'docs';

@@ -10,6 +10,7 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 import java.util.UUID
+import java.util.Arrays
 
 /**
  * BASTION CRYPTOGRAPHIC PROTOCOL (ANDROID)
@@ -20,7 +21,7 @@ object BastionCrypto {
     private const val PBKDF2_VAULT_ALGO = "PBKDF2WithHmacSHA256"
     private const val PBKDF2_CHAOS_ALGO = "PBKDF2WithHmacSHA512"
     private const val AES_ALGO = "AES/GCM/NoPadding"
-    private const val ITERATIONS = 100_000
+    private const val ITERATIONS = 210_000
     private const val SALT_LEN = 16
     private const val IV_LEN = 12
     private const val TAG_LEN = 128
@@ -37,7 +38,14 @@ object BastionCrypto {
         val iv = bytes.copyOfRange(SALT_LEN, SALT_LEN + IV_LEN)
         val cipherText = bytes.copyOfRange(SALT_LEN + IV_LEN, bytes.size)
 
-        val spec = PBEKeySpec(password.toCharArray(), String(salt, Charsets.ISO_8859_1).toByteArray(Charsets.ISO_8859_1), ITERATIONS, 256)
+        // DOMAIN SEPARATION
+        val domain = "BASTION_VAULT_V1::".toByteArray(StandardCharsets.UTF_8)
+        val finalSalt = ByteArray(domain.size + salt.size)
+        System.arraycopy(domain, 0, finalSalt, 0, domain.size)
+        System.arraycopy(salt, 0, finalSalt, domain.size, salt.size)
+
+        // Note: Android PBEKeySpec takes char[] for password, but salt as byte[]
+        val spec = PBEKeySpec(password.toCharArray(), finalSalt, ITERATIONS, 256)
         val factory = SecretKeyFactory.getInstance(PBKDF2_VAULT_ALGO)
         val keyBytes = factory.generateSecret(spec).encoded
         val key = SecretKeySpec(keyBytes, "AES")
@@ -55,9 +63,13 @@ object BastionCrypto {
         SecureRandom().nextBytes(salt)
         SecureRandom().nextBytes(iv)
 
-        // Web parity: Web uses raw bytes for salt in PBKDF2. Android PBEKeySpec takes char[] or byte[]?
-        // Standard Java PBEKeySpec takes salt as byte[].
-        val spec = PBEKeySpec(password.toCharArray(), String(salt, Charsets.ISO_8859_1).toByteArray(Charsets.ISO_8859_1), ITERATIONS, 256)
+        // DOMAIN SEPARATION
+        val domain = "BASTION_VAULT_V1::".toByteArray(StandardCharsets.UTF_8)
+        val finalSalt = ByteArray(domain.size + salt.size)
+        System.arraycopy(domain, 0, finalSalt, 0, domain.size)
+        System.arraycopy(salt, 0, finalSalt, domain.size, salt.size)
+
+        val spec = PBEKeySpec(password.toCharArray(), finalSalt, ITERATIONS, 256)
         val factory = SecretKeyFactory.getInstance(PBKDF2_VAULT_ALGO)
         val keyBytes = factory.generateSecret(spec).encoded
         val key = SecretKeySpec(keyBytes, "AES")
@@ -90,10 +102,12 @@ object BastionCrypto {
         length: Int,
         useSymbols: Boolean
     ): String {
-        val saltStr = "FORTRESS_V1::${serviceName.lowercase()}::${username.lowercase()}::v$version"
+        // DOMAIN SEPARATION
+        val saltStr = "BASTION_GENERATOR_V2::${serviceName.lowercase()}::${username.lowercase()}::v$version"
         val saltBytes = saltStr.toByteArray(StandardCharsets.UTF_8)
 
-        val spec = PBEKeySpec(masterEntropy.toCharArray(), saltBytes, ITERATIONS, 512)
+        val dkLen = length * 32 // Surplus bits for rejection
+        val spec = PBEKeySpec(masterEntropy.toCharArray(), saltBytes, ITERATIONS, dkLen)
         val factory = SecretKeyFactory.getInstance(PBKDF2_CHAOS_ALGO)
         val fluxBytes = factory.generateSecret(spec).encoded
 
@@ -101,11 +115,19 @@ object BastionCrypto {
         if (useSymbols) poolBuilder.append(SYM)
         val pool = poolBuilder.toString()
 
+        // REJECTION SAMPLING
+        val limit = 256 - (256 % pool.length)
         val sb = StringBuilder()
-        for (i in 0 until length) {
-            val byteVal = fluxBytes[i % fluxBytes.size].toInt() and 0xFF
-            val charIndex = byteVal % pool.length
-            sb.append(pool[charIndex])
+        var i = 0
+        
+        while (sb.length < length && i < fluxBytes.size) {
+            val byteVal = fluxBytes[i].toInt() and 0xFF
+            i++
+            
+            if (byteVal < limit) {
+                val charIndex = byteVal % pool.length
+                sb.append(pool[charIndex])
+            }
         }
 
         return sb.toString()

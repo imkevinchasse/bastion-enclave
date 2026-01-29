@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { Note } from '../types';
 import { Button } from './Button';
 import { ChaosLock } from '../services/cryptoService';
-import { Plus, Save, Trash2, Search, Book, Clock, AlertTriangle, FileText } from 'lucide-react';
+import { isModelReady, runTextTransformation, initLLM } from '../services/llmService';
+import { Plus, Save, Trash2, Search, Book, Clock, AlertTriangle, FileText, Sparkles, ListChecks, Wand2, ArrowRight, X } from 'lucide-react';
 
 interface NotesProps {
   notes: Note[];
@@ -19,6 +21,12 @@ export const Notes: React.FC<NotesProps> = ({ notes, onSave, onDelete }) => {
   const [editContent, setEditContent] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   
+  // AI State
+  const [isAIReady, setIsAIReady] = useState(isModelReady());
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPreview, setAiPreview] = useState<string | null>(null);
+  const [aiMode, setAiMode] = useState<'summarize' | 'grammar' | 'todo' | null>(null);
+  
   // Delete Safety State
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -32,6 +40,7 @@ export const Notes: React.FC<NotesProps> = ({ notes, onSave, onDelete }) => {
     setEditContent(note.content);
     setIsDirty(false);
     setConfirmDeleteId(null);
+    setAiPreview(null);
   };
 
   const handleCreate = () => {
@@ -77,6 +86,49 @@ export const Notes: React.FC<NotesProps> = ({ notes, onSave, onDelete }) => {
               setConfirmDeleteId(prev => prev === id ? null : prev);
           }, 3000);
       }
+  };
+
+  // --- AI HANDLERS ---
+
+  const handleInitEngine = async () => {
+      setAiLoading(true);
+      try {
+          await initLLM((progress) => console.log(progress));
+          setIsAIReady(true);
+      } catch (e) {
+          alert("Failed to load Neural Engine. Check WebGPU support.");
+      } finally {
+          setAiLoading(false);
+      }
+  };
+
+  const runAI = async (mode: 'summarize' | 'grammar' | 'todo') => {
+      if (!editContent.trim()) return;
+      setAiMode(mode);
+      setAiLoading(true);
+      try {
+          const result = await runTextTransformation(editContent, mode);
+          setAiPreview(result);
+      } catch (e: any) {
+          alert(e.message);
+      } finally {
+          setAiLoading(false);
+      }
+  };
+
+  const acceptAI = () => {
+      if (!aiPreview) return;
+      
+      if (aiMode === 'grammar') {
+          // Replace content
+          setEditContent(aiPreview);
+      } else {
+          // Append content
+          setEditContent(prev => prev + "\n\n--- NEURAL INSIGHTS ---\n" + aiPreview);
+      }
+      setIsDirty(true);
+      setAiPreview(null);
+      setAiMode(null);
   };
 
   return (
@@ -165,6 +217,35 @@ export const Notes: React.FC<NotesProps> = ({ notes, onSave, onDelete }) => {
                     </div>
                 </div>
 
+                {/* Neural Toolbar */}
+                <div className="px-6 py-2 border-b border-white/5 bg-slate-950/30 flex items-center gap-2">
+                    <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1 mr-2">
+                        <Sparkles size={12} /> Neural Assist
+                    </div>
+                    
+                    {!isAIReady ? (
+                        <button 
+                            onClick={handleInitEngine}
+                            className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 px-3 py-1 rounded-full hover:bg-indigo-500 hover:text-white transition-all"
+                        >
+                            {aiLoading ? 'Loading Engine...' : 'Initialize AI'}
+                        </button>
+                    ) : (
+                        <>
+                            <button onClick={() => runAI('summarize')} disabled={aiLoading} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-emerald-400 transition-colors" title="Summarize Note">
+                                <FileText size={14} />
+                            </button>
+                            <button onClick={() => runAI('grammar')} disabled={aiLoading} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-indigo-400 transition-colors" title="Fix Grammar/Spelling">
+                                <Wand2 size={14} />
+                            </button>
+                            <button onClick={() => runAI('todo')} disabled={aiLoading} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-amber-400 transition-colors" title="Extract Action Items">
+                                <ListChecks size={14} />
+                            </button>
+                            {aiLoading && <span className="text-[10px] text-slate-500 animate-pulse ml-2">Processing...</span>}
+                        </>
+                    )}
+                </div>
+
                 {/* Content Area */}
                 <div className="flex-1 flex flex-col p-6 md:p-8 overflow-hidden bg-[#0f172a] relative">
                     {/* Subtle lined paper pattern css */}
@@ -184,6 +265,27 @@ export const Notes: React.FC<NotesProps> = ({ notes, onSave, onDelete }) => {
                         placeholder="Start writing..."
                         style={{ lineHeight: '2rem' }} // Matches grid
                     />
+
+                    {/* AI Preview Overlay */}
+                    {aiPreview && (
+                        <div className="absolute inset-x-6 bottom-6 bg-slate-900 border border-indigo-500/50 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 z-20 flex flex-col max-h-[50%]">
+                            <div className="bg-indigo-900/20 px-4 py-2 flex justify-between items-center border-b border-indigo-500/20">
+                                <span className="text-xs font-bold text-indigo-400 uppercase flex items-center gap-2">
+                                    <Sparkles size={12} /> {aiMode === 'grammar' ? 'Grammar Correction' : 'Neural Insight'}
+                                </span>
+                                <button onClick={() => setAiPreview(null)} className="text-slate-500 hover:text-white"><X size={14} /></button>
+                            </div>
+                            <div className="p-4 overflow-y-auto custom-scrollbar text-sm text-slate-300 font-mono">
+                                {aiPreview}
+                            </div>
+                            <div className="p-3 bg-slate-950/50 flex justify-end gap-2 border-t border-white/5">
+                                <Button size="sm" variant="secondary" onClick={() => setAiPreview(null)}>Discard</Button>
+                                <Button size="sm" onClick={acceptAI} className="bg-indigo-600 hover:bg-indigo-500 text-white">
+                                    {aiMode === 'grammar' ? 'Replace Content' : 'Append to Note'} <ArrowRight size={14} />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
              </>
          ) : (

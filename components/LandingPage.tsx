@@ -4,7 +4,7 @@ import { TopNav } from './TopNav';
 import { LandingFeatures } from './LandingFeatures';
 import { Button } from './Button';
 import { BrandLogo } from './BrandLogo';
-import { ArrowRight, HeartHandshake, Zap, HardDrive, FileJson, Binary, Shield, ServerOff, Scaling, Coffee } from 'lucide-react';
+import { ArrowRight, HeartHandshake, Zap, HardDrive, FileJson, Binary, Shield, ServerOff, Scaling, Terminal, Lock, Globe, Database, Anchor } from 'lucide-react';
 import { PublicPage } from '../types';
 
 interface LandingPageProps {
@@ -15,7 +15,7 @@ const DEMO_STAGES = {
     'input': {
         icon: <FileJson size={20} />,
         label: 'Raw Input',
-        desc: 'Plaintext JSON object in memory',
+        desc: 'Plaintext JSON object in volatile RAM',
         color: 'text-indigo-400',
         borderColor: 'border-indigo-500',
         bg: 'bg-indigo-500/10',
@@ -41,7 +41,7 @@ const DEMO_STAGES = {
 const iv = window.crypto.getRandomValues(new Uint8Array(12));
 // [142, 21, 89, 210, 44, 9, 241, 19, 78, 233, 11, 5]
 
-// 2. Encrypt with Master Key
+// 2. Encrypt with Master Key (PBKDF2 Derived)
 const key = await window.crypto.subtle.importKey(...);
 const cipher = await window.crypto.subtle.encrypt(
   { name: "AES-GCM", iv: iv },
@@ -53,8 +53,8 @@ const cipher = await window.crypto.subtle.encrypt(
     },
     'storage': {
         icon: <HardDrive size={20} />,
-        label: 'Local Blob',
-        desc: 'Persisted to IndexedDB / localStorage',
+        label: 'Local Storage',
+        desc: 'Encrypted blob persisted to disk',
         color: 'text-amber-400',
         borderColor: 'border-amber-500',
         bg: 'bg-amber-500/10',
@@ -71,19 +71,14 @@ gxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkw
 };
 
 const COMPARISON_DATA = [
-    { feature: "Offline‑First Storage", bastion: "✅ Yes (Local Storage)", lp: "❌ Cloud default", bw: "❌ Cloud default", op: "❌ Cloud default", kp: "✅ Yes" },
-    { feature: "Zero‑Knowledge Architecture", bastion: "✅ Yes (Verified)", lp: "⚠ Claimed", bw: "✅ Yes", op: "✅ Yes", kp: "✅ Yes" },
-    { feature: "No Central Server Vault", bastion: "✅ Yes (Serverless)", lp: "❌ Yes (cloud backups)", bw: "❌ Yes (cloud/self)", op: "❌ Yes (cloud)", kp: "✅ Yes" },
-    { feature: "Browser Autofill Exposure", bastion: "✅ Resistant (Manual)", lp: "❌ High Risk", bw: "❌ Browser Extension", op: "❌ Browser Extension", kp: "⚠ Varies" },
-    { feature: "Seed + Password + Resonance", bastion: "✅ Yes (Multi-Factor)", lp: "❌ Standard Master Pwd", bw: "❌ Standard Master Pwd", op: "❌ Pwd + Secret Key", kp: "❌ Standard Master Pwd" },
-    { feature: "Encryption Standard", bastion: "AES‑256‑GCM", lp: "AES‑256 (CBC/GCM)", bw: "AES‑256 (CBC/GCM)", op: "AES‑256 (GCM)", kp: "AES / ChaCha20" },
-    { feature: "Self‑Hosting Option", bastion: "✅ Static Export", lp: "❌", bw: "✅ Yes (Docker)", op: "❌", kp: "✅ Yes" },
-    { feature: "Open Source / Auditable", bastion: "✅ Open Protocol", lp: "❌ Closed Source", bw: "✅ Yes (AGPL)", op: "❌ Closed Source", kp: "✅ Yes (GPL)" },
-    { feature: "Multi‑Platform Support", bastion: "✅ Universal PWA", lp: "✅ All Devices", bw: "✅ All Devices", op: "✅ All Devices", kp: "⚠ Varies by Client" },
-    { feature: "Breach Monitoring", bastion: "❌ (Offline Only)", lp: "✅ Yes (Cloud)", bw: "✅ Yes (Premium)", op: "✅ Yes (Watchtower)", kp: "❌" },
-    { feature: "AI Security Analysis", bastion: "✅ On-Device LLM", lp: "❌", bw: "❌", op: "❌", kp: "❌" },
-    { feature: "Cost Model", bastion: "✅ Free / Donation", lp: "❌ Subscription", bw: "✅ Freemium", op: "❌ Subscription", kp: "✅ Free" },
-    { feature: "History of Cloud Breaches", bastion: "🚫 N/A (No Cloud)", lp: "❌ Multiple Known", bw: "✅ None Known", op: "✅ None Known", kp: "🚫 N/A" },
+    { feature: "Primary Storage Location", bastion: "Device (Local)", lp: "Cloud (Central)", bw: "Cloud (Central)", op: "Cloud (Central)", kp: "Device (Local)" },
+    { feature: "Centralized Attack Surface", bastion: "None (Distributed)", lp: "High (Target Rich)", bw: "High (Target Rich)", op: "High (Target Rich)", kp: "None" },
+    { feature: "Zero-Knowledge Architecture", bastion: "Verifiable (Client-Side)", lp: "Policy Based", bw: "Audited Code", op: "Proprietary", kp: "Open Source" },
+    { feature: "Browser Autofill Hooks", bastion: "Resistant (Manual)", lp: "Deep Integration", bw: "Extension Hooks", op: "Extension Hooks", kp: "Auto-Type" },
+    { feature: "Master Key Transmission", bastion: "Never Leaves Device", lp: "Hash Sent to Auth", bw: "Hash Sent to Auth", op: "SRP Protocol", kp: "Never Sent" },
+    { feature: "Breach Monitoring", bastion: "k-Anonymity (API)", lp: "Cloud Scans", bw: "Cloud Scans", op: "Watchtower", kp: "Plugin Required" },
+    { feature: "AI Security Analysis", bastion: "On-Device (WebGPU)", lp: "None", bw: "None", op: "None", kp: "None" },
+    { feature: "Cost Model", bastion: "Sovereign (Free)", lp: "Subscription", bw: "Freemium", op: "Subscription", kp: "Free (GPL)" },
 ];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
@@ -111,27 +106,29 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 <div className="flex-1 text-center lg:text-left space-y-8 animate-in fade-in slide-in-from-left-8 duration-700">
                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-indigo-500/30 text-indigo-400 text-[10px] font-mono uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                        Secure Enclave v2.6.0
+                        Bastion Protocol v2.6.0
                     </div>
                     
                     <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[1.1]">
-                        Bastion: <br/>
+                        The Cloud is Leaking. <br/>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-emerald-400">
-                            Your Digital Fortress
+                            Go Dark.
                         </span>
                     </h1>
                     
                     <p className="text-xl text-slate-400 font-light leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                        Zero-knowledge security. Client-side encryption. Your data, your control.
+                        We don't want your data. We don't want your keys.
+                        Bastion Enclave is an offline-first vault that replaces "trust" with mathematics.
+                        Your identity exists only on your device.
                     </p>
                     
                     <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-4">
                         <Button size="lg" onClick={() => onNavigate('auth')} className="w-full sm:w-auto h-14 text-lg px-8 shadow-[0_0_40px_-10px_rgba(79,70,229,0.5)]">
-                            See Bastion in Action <ArrowRight size={20} />
+                            Enter Vault <ArrowRight size={20} />
                         </Button>
                         <a href="https://github.com/google-gemini/bastion" target="_blank" rel="noreferrer" className="w-full sm:w-auto">
                            <Button variant="secondary" size="lg" className="w-full h-14 text-lg px-8">
-                               <HeartHandshake size={20} /> Support the Project
+                               <Terminal size={20} /> Inspect Source
                            </Button>
                         </a>
                     </div>
@@ -159,11 +156,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                     
                     <div className="grid lg:grid-cols-2 gap-12 p-8 lg:p-16 items-start">
                         <div className="space-y-8">
-                            <h2 className="text-3xl md:text-4xl font-bold text-white">Zero-Knowledge Architecture</h2>
+                            <h2 className="text-3xl md:text-4xl font-bold text-white">Trust No One. Not Even Us.</h2>
                             <p className="text-lg text-slate-400 leading-relaxed">
-                                Unlike cloud-based password managers that act as central honeypots for hackers, Bastion decentralizes security.
+                                Traditional password managers act as a centralized honeypot for attackers. If their cloud is breached, your vault is just one decryption away from exposure.
                                 <br/><br/>
-                                <span className="text-indigo-400 text-sm font-bold uppercase tracking-wider">Try it yourself:</span> Click the pipeline stages to see how your data is transformed.
+                                <strong className="text-white">Bastion is different.</strong> It executes entirely in your browser's memory. The only thing we store is a blob of random noise that only you can organize.
                             </p>
                             
                             {/* Interactive Pipeline Triggers */}
@@ -176,8 +173,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                                         <FileJson size={20}/>
                                     </div>
                                     <div>
-                                        <h4 className={`font-bold ${activeStage === 'input' ? 'text-white' : 'text-slate-400'}`}>1. Raw Input</h4>
-                                        <p className="text-xs text-slate-500">Your password entered in the UI.</p>
+                                        <h4 className={`font-bold ${activeStage === 'input' ? 'text-white' : 'text-slate-400'}`}>1. Volatile Input</h4>
+                                        <p className="text-xs text-slate-500">Plaintext exists ONLY in RAM.</p>
                                     </div>
                                     <ArrowRight className={`ml-auto ${activeStage === 'input' ? 'text-indigo-400' : 'text-slate-700'} group-hover:translate-x-1 transition-transform`} size={16} />
                                 </button>
@@ -190,8 +187,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                                         <Zap size={20}/>
                                     </div>
                                     <div>
-                                        <h4 className={`font-bold ${activeStage === 'process' ? 'text-white' : 'text-slate-400'}`}>2. AES-GCM Encryption</h4>
-                                        <p className="text-xs text-slate-500">Web Crypto API processes data in memory.</p>
+                                        <h4 className={`font-bold ${activeStage === 'process' ? 'text-white' : 'text-slate-400'}`}>2. AES-GCM Transmutation</h4>
+                                        <p className="text-xs text-slate-500">WebCrypto primitives isolate keys.</p>
                                     </div>
                                     <ArrowRight className={`ml-auto ${activeStage === 'process' ? 'text-emerald-400' : 'text-slate-700'} group-hover:translate-x-1 transition-transform`} size={16} />
                                 </button>
@@ -204,8 +201,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                                         <HardDrive size={20}/>
                                     </div>
                                     <div>
-                                        <h4 className={`font-bold ${activeStage === 'storage' ? 'text-white' : 'text-slate-400'}`}>3. Local Blob</h4>
-                                        <p className="text-xs text-slate-500">Encrypted string saved to disk.</p>
+                                        <h4 className={`font-bold ${activeStage === 'storage' ? 'text-white' : 'text-slate-400'}`}>3. Opaque Persistence</h4>
+                                        <p className="text-xs text-slate-500">Only encrypted noise touches the disk.</p>
                                     </div>
                                     <ArrowRight className={`ml-auto ${activeStage === 'storage' ? 'text-amber-400' : 'text-slate-700'} group-hover:translate-x-1 transition-transform`} size={16} />
                                 </button>
@@ -257,19 +254,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             <div className="bg-slate-900/30 border-y border-white/5">
                 <div className="max-w-7xl mx-auto px-6 py-24 grid lg:grid-cols-2 gap-16">
                     <div className="space-y-6">
-                        <div className="text-amber-400 font-bold text-sm uppercase tracking-widest">The Problem</div>
-                        <h2 className="text-3xl font-bold text-white">Security Without Compromise</h2>
+                        <div className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                            <ServerOff size={16} /> The Risk
+                        </div>
+                        <h2 className="text-3xl font-bold text-white">Centralization is Vulnerability</h2>
                         <p className="text-lg text-slate-400 leading-relaxed">
-                            Most password managers require cloud storage, leaving sensitive data vulnerable to mass breaches. 
-                            When a centralized server is hacked, millions of vaults are exposed at once.
+                            When 50 million passwords are stored on one server, it becomes the ultimate target for nation-state actors. 
+                            If that server falls, encryption is the only defense—and history shows that metadata leaks and weak master password policies often render server-side encryption moot.
                         </p>
                     </div>
                     <div className="space-y-6">
-                         <div className="text-emerald-400 font-bold text-sm uppercase tracking-widest">The Solution</div>
-                         <h2 className="text-3xl font-bold text-white">Bastion Enclave</h2>
+                         <div className="text-emerald-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                             <Shield size={16} /> The Solution
+                         </div>
+                         <h2 className="text-3xl font-bold text-white">Distributed Sovereignty</h2>
                          <p className="text-lg text-slate-400 leading-relaxed">
-                            With a modular design—Chaos Engine™, Locker, Shadow Rolodex, and Neural Auditor—Bastion provides a fortress for your digital life. 
-                            All client-side, all encrypted, all under your control.
+                            Bastion Enclave distributes the risk. By keeping data local, there is no central database to breach. 
+                            Attacking Bastion means attacking millions of individual, hardened devices—a task that is computationally and economically infeasible.
                          </p>
                     </div>
                 </div>
@@ -279,18 +280,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             <div className="max-w-7xl mx-auto px-6 py-24">
                 <div className="text-center mb-16 space-y-4">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-white/10 text-slate-400 text-[10px] font-mono uppercase tracking-widest">
-                        <Shield size={12} className="text-indigo-400" /> Market Analysis
+                        <Database size={12} className="text-indigo-400" /> Architectural Audit
                     </div>
-                    <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">The Honest Comparison</h2>
+                    <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">The Sovereign Advantage</h2>
                     <p className="text-slate-400 max-w-2xl mx-auto text-lg">
-                        See how Bastion's architecture stacks up against traditional cloud-based password managers.
+                        See how the Bastion protocol eliminates entire classes of attack vectors inherent to cloud-based managers.
                     </p>
                 </div>
 
                 <div className="overflow-x-auto pb-6">
                     <div className="min-w-[1000px]">
                         <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-4 mb-4 px-4">
-                            <div className="font-bold text-sm text-slate-500 uppercase tracking-wider py-4">Feature / Capability</div>
+                            <div className="font-bold text-sm text-slate-500 uppercase tracking-wider py-4">Architecture</div>
                             <div className="font-bold text-lg text-white py-2 flex flex-col items-center justify-center bg-indigo-600/20 border border-indigo-500/50 rounded-t-xl">
                                 <BrandLogo size={24} className="mb-2" />
                                 Bastion
@@ -298,7 +299,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                             <div className="font-bold text-sm text-slate-400 py-4 text-center">LastPass</div>
                             <div className="font-bold text-sm text-slate-400 py-4 text-center">Bitwarden</div>
                             <div className="font-bold text-sm text-slate-400 py-4 text-center">1Password</div>
-                            <div className="font-bold text-sm text-slate-400 py-4 text-center">KeePass (Local)</div>
+                            <div className="font-bold text-sm text-slate-400 py-4 text-center">KeePass</div>
                         </div>
 
                         <div className="space-y-2">
@@ -307,7 +308,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                                     <div className="font-medium text-slate-300 text-sm">{row.feature}</div>
                                     
                                     {/* Bastion Column */}
-                                    <div className="text-center font-bold text-white text-sm bg-indigo-500/10 py-3 rounded-lg border border-indigo-500/20 shadow-[0_0_15px_-5px_rgba(99,102,241,0.2)]">
+                                    <div className="text-center font-bold text-white text-xs bg-indigo-500/10 py-3 rounded-lg border border-indigo-500/20 shadow-[0_0_15px_-5px_rgba(99,102,241,0.2)]">
                                         {row.bastion}
                                     </div>
                                     
@@ -326,46 +327,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             <div className="max-w-7xl mx-auto px-6 py-24 border-t border-white/5">
                 <div className="grid md:grid-cols-3 gap-8">
                     <div className="bg-slate-900/50 p-8 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition-colors">
-                        <ServerOff size={32} className="text-indigo-400 mb-6" />
-                        <h3 className="text-xl font-bold text-white mb-3">Offline-Capable</h3>
-                        <p className="text-slate-400">Protects users from breaches, leaks, and cloud dependency. Zero infrastructure cost for storage.</p>
+                        <Anchor size={32} className="text-indigo-400 mb-6" />
+                        <h3 className="text-xl font-bold text-white mb-3">Anchored Data</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed">
+                            Heavy files in the Locker are <strong>anchored</strong> to the specific device they were encrypted on. They do not sync automatically, preventing massive bandwidth usage or "surprise" downloads on mobile.
+                        </p>
                     </div>
                     <div className="bg-slate-900/50 p-8 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition-colors">
                         <Scaling size={32} className="text-violet-400 mb-6" />
-                        <h3 className="text-xl font-bold text-white mb-3">Scalable AI Security</h3>
-                        <p className="text-slate-400">Neural Auditor runs on the edge (WebGPU), scaling infinitely without backend GPU costs.</p>
+                        <h3 className="text-xl font-bold text-white mb-3">Edge AI Analysis</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed">
+                            Our Neural Auditor runs via WebGPU on your local graphics card. We don't send your passwords to an AI server; we bring the AI model to you.
+                        </p>
                     </div>
                     <div className="bg-slate-900/50 p-8 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition-colors">
-                        <Coffee size={32} className="text-emerald-400 mb-6" />
-                        <h3 className="text-xl font-bold text-white mb-3">Java Sovereign Runtime</h3>
-                        <p className="text-slate-400">Download the single-file Java application (`Bastion.java`) to decrypt your vault and generate credentials anywhere.</p>
+                        <Terminal size={32} className="text-emerald-400 mb-6" />
+                        <h3 className="text-xl font-bold text-white mb-3">Portable Identity</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed">
+                            Your Identity (Passwords, Contacts, Notes, and File Keys) travels with your 5KB text backup. You can restore access on any device instantly, while heavy files remain on their origin device.
+                        </p>
                     </div>
                 </div>
             </div>
 
-            {/* 7. CROWDFUNDING CTA */}
+            {/* 7. CTA */}
             <div className="relative py-32 px-6 overflow-hidden">
                 <div className="absolute inset-0 bg-indigo-900/10"></div>
                 <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-transparent to-slate-950"></div>
                 
                 <div className="max-w-4xl mx-auto text-center relative z-10 space-y-8">
                     <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-                        Support Bastion <br/>
-                        <span className="text-indigo-400">Be a Founding Member</span>
+                        Take Back Your Digital Sovereignty
                     </h2>
                     <p className="text-xl text-slate-400 leading-relaxed max-w-2xl mx-auto">
-                        Join our mission to secure the web. Support Bastion with a one-time contribution or ongoing sponsorship. 
-                        Get early access to features and be part of our Founders Wall.
+                        Stop renting your security from the cloud. Own your encryption. Control your keys.
+                        Become a founding member of the Bastion Protocol.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <Button size="lg" className="h-16 px-10 text-xl bg-white text-slate-950 hover:bg-slate-200 hover:text-slate-900 shadow-xl border-0">
-                            Support Bastion
+                            Support Project
                         </Button>
-                        <a href="https://drive.google.com/file/d/1q-xh7ZY5FVnpCE7S_EGrzUV-6qzdUqNb/view?usp=share_link" target="_blank" rel="noreferrer">
-                            <Button size="lg" variant="secondary" className="h-16 px-10 text-xl">
-                                <Coffee size={20} className="mr-2" /> Download Java App
-                            </Button>
-                        </a>
                         <Button size="lg" variant="secondary" className="h-16 px-10 text-xl" onClick={() => onNavigate('auth')}>
                             Launch Web App
                         </Button>
@@ -378,10 +379,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="flex items-center gap-2 opacity-50">
                         <BrandLogo size={24} />
-                        <span className="font-bold text-white">Bastion</span>
+                        <span className="font-bold text-white">Bastion Enclave</span>
                     </div>
-                    <div className="text-sm text-slate-500 font-mono">
-                        © 2024 BASTION SECURITY • OPEN SOURCE PROTOCOL
+                    <div className="text-sm text-slate-500 font-mono text-center md:text-right">
+                        <div>© 2024 BASTION SECURITY • OPEN SOURCE PROTOCOL</div>
+                        <div className="text-[10px] mt-1 opacity-60">NO TRACKING. NO ANALYTICS. NO COOKIES.</div>
                     </div>
                 </div>
             </div>

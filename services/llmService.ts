@@ -1,10 +1,15 @@
+
 import { CreateMLCEngine, MLCEngine } from "@mlc-ai/web-llm";
-import { AuditResult, SecurityLevel } from "../types";
+import { AuditResult, SecurityLevel, PhishingResult } from "../types";
 
 // We use the Q4 quantized version of TinyLlama for browser efficiency
 const MODEL_ID = "TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC";
 
 let engine: MLCEngine | null = null;
+
+export const isModelReady = (): boolean => {
+    return engine !== null;
+};
 
 export const initLLM = async (
   onProgress: (text: string) => void
@@ -30,28 +35,42 @@ export const initLLM = async (
   }
 };
 
-export const runLocalAudit = async (password: string): Promise<AuditResult> => {
+/**
+ * DEEP CREDENTIAL AUDIT
+ * Analyzes password in the context of the service and username.
+ */
+export const runCredentialAudit = async (password: string, service?: string, username?: string): Promise<AuditResult> => {
   if (!engine) {
     throw new Error("Engine not initialized");
   }
 
-  // Simplified prompt. We ask for JSON, but we prepare for anything.
-  const prompt = `Analyze security: "${password}".
+  const contextStr = (service || username) 
+    ? `\nContext:\nService: ${service || 'Unknown'}\nUsername: ${username || 'Unknown'}`
+    : '';
+
+  const prompt = `Analyze security of this password.${contextStr}
+Password: "${password}"
+
+Check for:
+1. Complexity (Length, charset)
+2. Predictability (Common patterns)
+3. Contextual weakness (Does password contain parts of Service or Username?)
+
 Response format:
 Score: [0-100]
 Level: [CRITICAL/LOW/MEDIUM/HIGH]
-Analysis: [Short summary]
+Analysis: [Short summary, mention if context leaked]
 Suggestions: [Tip 1, Tip 2]`;
 
   try {
     const response = await engine.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 256,
+      max_tokens: 300,
       temperature: 0.1, // Near-zero temp for deterministic output
     });
 
     const content = response.choices[0].message.content || "";
-    return parseModelOutput(content);
+    return parseAuditOutput(content);
 
   } catch (err) {
     console.error("Local Audit Failed", err);
@@ -65,29 +84,112 @@ Suggestions: [Tip 1, Tip 2]`;
 };
 
 /**
- * Robustly parses model output, handling JSON, loose Key-Values, or garbage.
+ * PHISHING & SOCIAL ENGINEERING DETECTION
+ * Analyzes text for manipulative patterns.
  */
-function parseModelOutput(text: string): AuditResult {
-    // 1. Strategy: Try strict JSON extraction first
-    try {
-        const start = text.indexOf('{');
-        const end = text.lastIndexOf('}');
-        if (start !== -1 && end !== -1 && end > start) {
-            const jsonStr = text.substring(start, end + 1);
-            const raw = JSON.parse(jsonStr);
-            return validateAndNormalize(raw);
-        }
-    } catch (e) {
-        // Ignore JSON errors, fall through to regex
-    }
+export const runPhishingAnalysis = async (text: string): Promise<PhishingResult> => {
+    if (!engine) throw new Error("Engine not initialized");
 
-    // 2. Strategy: Regex scraping for Key: Value patterns
-    // Matches "Score: 85" or "score=85" or "**Score**: 85"
+    const prompt = `Analyze this text for social engineering or phishing indicators.
+Text: "${text.substring(0, 500)}"
+
+Look for:
+- Urgency or Fear
+- Authority mimicking
+- Financial requests
+- Suspicious links/instructions
+
+Response format:
+Risk: [SAFE/SUSPICIOUS/DANGEROUS]
+Confidence: [0-100]
+Indicators: [Urgency, Money, etc.]
+Analysis: [One sentence summary]`;
+
+    try {
+        const response = await engine.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 256,
+            temperature: 0.1,
+        });
+
+        const content = response.choices[0].message.content || "";
+        return parsePhishingOutput(content);
+
+    } catch (err) {
+        return {
+            riskLevel: 'SUSPICIOUS',
+            confidence: 0,
+            indicators: ["Engine Error"],
+            analysis: "Could not complete analysis due to internal error."
+        };
+    }
+};
+
+/**
+ * NOTE ASSISTANT
+ * Performs operations on note content: Summarize, Fix Grammar, Extract Todos.
+ */
+export const runTextTransformation = async (text: string, mode: 'summarize' | 'grammar' | 'todo'): Promise<string> => {
+    if (!engine) throw new Error("Neural Engine not active. Please initialize it in the Auditor tab first.");
+
+    const truncated = text.substring(0, 2000); // Prevent context overflow
+    
+    let sysPrompt = "";
+    if (mode === 'summarize') sysPrompt = "Summarize the following text in 3 concise bullet points. Preserve key details.";
+    if (mode === 'grammar') sysPrompt = "Fix grammar, spelling, and punctuation in the following text. Do not change the meaning. Return ONLY the corrected text.";
+    if (mode === 'todo') sysPrompt = "Extract a list of actionable tasks from the text. Format them as a Markdown checklist (e.g. - [ ] Task). If none, say 'No tasks found'.";
+
+    try {
+        const response = await engine.chat.completions.create({
+            messages: [
+                { role: "system", content: "You are a helpful secure assistant." },
+                { role: "user", content: `${sysPrompt}\n\nINPUT:\n${truncated}` }
+            ],
+            max_tokens: 500,
+            temperature: 0.3,
+        });
+
+        return response.choices[0].message.content || "AI returned no output.";
+    } catch (err: any) {
+        throw new Error(err.message || "AI Transformation failed");
+    }
+};
+
+/**
+ * VAULT SMART SEARCH
+ * Expands a search query into related terms (Synonyms/Categories).
+ */
+export const expandSearchQuery = async (query: string): Promise<string[]> => {
+    if (!engine) return []; // Fail gracefully if not loaded
+
+    try {
+        const response = await engine.chat.completions.create({
+            messages: [
+                { role: "user", content: `List 5 common synonyms, related service names, or categories for "${query}". Return ONLY a comma-separated list. Example: "streaming, netflix, hulu, video, movies"` }
+            ],
+            max_tokens: 60,
+            temperature: 0.5,
+        });
+
+        const raw = response.choices[0].message.content || "";
+        // Clean up the output
+        return raw.split(',')
+            .map(s => s.trim().replace(/\./g, ''))
+            .filter(s => s.length > 2);
+    } catch (err) {
+        return [];
+    }
+};
+
+/**
+ * Robustly parses model output for Credential Audit.
+ */
+function parseAuditOutput(text: string): AuditResult {
+    // Regex scraping for Key: Value patterns
     const scoreMatch = text.match(/(?:score|rating)[\s:*=]+(\d+)/i);
     const levelMatch = text.match(/(?:level|risk|classification)[\s:*=]+(CRITICAL|HIGH|MEDIUM|LOW)/i);
     const analysisMatch = text.match(/(?:analysis|summary)[\s:*=]+([^\n]+)/i);
     
-    // Suggestions are harder, usually a list. Look for lines starting with - or *
     const suggestions: string[] = [];
     const lines = text.split('\n');
     for (const line of lines) {
@@ -96,12 +198,11 @@ function parseModelOutput(text: string): AuditResult {
         }
     }
 
-    // 3. Strategy: Keyword Scanning (Last Resort)
     let score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
     let level = levelMatch ? (levelMatch[1].toUpperCase() as SecurityLevel) : SecurityLevel.LOW;
     let analysis = analysisMatch ? analysisMatch[1].trim() : "Analysis completed.";
 
-    // If we missed the level but have a score, infer it
+    // Fallbacks
     if (!levelMatch && score > 0) {
         if (score < 40) level = SecurityLevel.CRITICAL;
         else if (score < 70) level = SecurityLevel.LOW;
@@ -109,22 +210,13 @@ function parseModelOutput(text: string): AuditResult {
         else level = SecurityLevel.HIGH;
     }
 
-    // If we missed the score but have a level, infer it
-    if (!scoreMatch && levelMatch) {
-         if (level === 'CRITICAL') score = 20;
-         if (level === 'LOW') score = 50;
-         if (level === 'MEDIUM') score = 75;
-         if (level === 'HIGH') score = 95;
-    }
-
-    // If text is just a sentence without structure, use it as analysis
-    if (!analysisMatch && text.length > 10 && text.length < 200) {
-        analysis = text.replace(/\n/g, ' ').substring(0, 100);
+    if (!analysisMatch && text.length > 10) {
+        analysis = text.replace(/\n/g, ' ').substring(0, 150) + "...";
     }
 
     if (suggestions.length === 0) {
         suggestions.push("Review password complexity.");
-        if (passwordHasIssues(text)) suggestions.push("Potential weakness detected.");
+        if (text.toLowerCase().includes('weak')) suggestions.push("Password appears weak.");
     }
 
     return {
@@ -135,21 +227,37 @@ function parseModelOutput(text: string): AuditResult {
     };
 }
 
-function validateAndNormalize(raw: any): AuditResult {
-    let safeLevel = SecurityLevel.LOW;
-    if (raw.level && Object.values(SecurityLevel).includes(raw.level as SecurityLevel)) {
-        safeLevel = raw.level as SecurityLevel;
+/**
+ * Robustly parses model output for Phishing Analysis.
+ */
+function parsePhishingOutput(text: string): PhishingResult {
+    const riskMatch = text.match(/(?:risk|threat)[\s:*=]+(SAFE|SUSPICIOUS|DANGEROUS)/i);
+    const confMatch = text.match(/(?:confidence|prob)[\s:*=]+(\d+)/i);
+    const analysisMatch = text.match(/(?:analysis|summary)[\s:*=]+([^\n]+)/i);
+    
+    const indicators: string[] = [];
+    // Extract indicators from lines or comma lists
+    if (text.includes("Indicators:")) {
+        const indSection = text.split("Indicators:")[1].split("\n")[0];
+        indSection.split(/,|;/).forEach(i => {
+            const clean = i.replace(/[\[\]]/g, '').trim();
+            if (clean) indicators.push(clean);
+        });
+    }
+
+    let riskLevel: 'SAFE' | 'SUSPICIOUS' | 'DANGEROUS' = 'SUSPICIOUS';
+    if (riskMatch) {
+        riskLevel = riskMatch[1].toUpperCase() as any;
+    } else {
+        // Keyword fallback
+        if (text.toLowerCase().includes('safe')) riskLevel = 'SAFE';
+        if (text.toLowerCase().includes('danger') || text.toLowerCase().includes('phish')) riskLevel = 'DANGEROUS';
     }
 
     return {
-        score: typeof raw.score === 'number' ? raw.score : 0,
-        level: safeLevel,
-        suggestions: Array.isArray(raw.suggestions) ? raw.suggestions.map(String) : ["Review security."],
-        analysis: typeof raw.analysis === 'string' ? raw.analysis : "Analysis complete."
+        riskLevel,
+        confidence: confMatch ? parseInt(confMatch[1], 10) : 70,
+        indicators: indicators.length > 0 ? indicators : ["General Suspicion"],
+        analysis: analysisMatch ? analysisMatch[1].trim() : "Analysis completed based on patterns."
     };
-}
-
-function passwordHasIssues(text: string): boolean {
-    const weakKeywords = ['weak', 'short', 'common', 'guessable', 'simple', 'pattern'];
-    return weakKeywords.some(w => text.toLowerCase().includes(w));
 }

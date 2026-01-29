@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface LogoProps {
@@ -17,48 +18,60 @@ export const BrandLogo: React.FC<LogoProps> = ({ className, size = 24, animated 
         className={className}
     >
         <defs>
-            <linearGradient id="shield_metal" x1="10" y1="10" x2="90" y2="90" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stopColor="#f1f5f9" />
-                <stop offset="0.4" stopColor="#94a3b8" />
-                <stop offset="0.6" stopColor="#cbd5e1" />
-                <stop offset="1" stopColor="#475569" />
+            <linearGradient id="core_grad" x1="50" y1="35" x2="50" y2="65" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#6366f1" />
+                <stop offset="1" stopColor="#818cf8" />
             </linearGradient>
-            
-            <linearGradient id="keyhole_glow" x1="45" y1="50" x2="55" y2="80" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#22d3ee" />
-                <stop offset="1" stopColor="#3b82f6" />
+            <linearGradient id="shell_grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#334155" />
+                <stop offset="1" stopColor="#1e293b" />
             </linearGradient>
-
-            <filter id="glow_blur" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                </feMerge>
+            <filter id="glow_core" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
         </defs>
 
-        {/* Outer Metallic Shield Structure */}
-        <path 
-            d="M50 96L12 76V26H30V38H40V20H60V38H70V26H88V76L50 96Z" 
-            fill="url(#shield_metal)" 
-            stroke="rgba(255,255,255,0.4)"
-            strokeWidth="1"
-            className="drop-shadow-2xl"
-        />
+        {animated && (
+            <style>{`
+                @keyframes bastion-flow {
+                    to { stroke-dashoffset: -4; }
+                }
+                .bastion-flow {
+                    animation: bastion-flow 1s linear infinite;
+                }
+            `}</style>
+        )}
 
-        {/* Inner Dark Recess */}
-        <path 
-            d="M50 88L20 72V32H34V44H44V28H56V44H66V32H80V72L50 88Z" 
-            fill="#020617" 
-            fillOpacity="0.9"
-        />
+        {/* --- LAYER 3: OUTER SHELL (The Vault) --- */}
+        {/* Top Face */}
+        <path d="M50 5 L90 25 L50 45 L10 25 Z" fill="none" stroke="#475569" strokeWidth="2" strokeLinejoin="round" />
+        {/* Right Face */}
+        <path d="M90 25 L90 65 L50 85 L50 45 Z" fill="url(#shell_grad)" fillOpacity="0.2" stroke="#475569" strokeWidth="2" strokeLinejoin="round" />
+        {/* Left Face */}
+        <path d="M10 25 L50 45 L50 85 L10 65 Z" fill="url(#shell_grad)" fillOpacity="0.2" stroke="#475569" strokeWidth="2" strokeLinejoin="round" />
 
-        {/* Keyhole with Glow */}
-        <g filter="url(#glow_blur)" className={animated ? "animate-pulse" : ""}>
-            <circle cx="50" cy="54" r="7" fill="url(#keyhole_glow)" className={animated ? "animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite] opacity-75" : ""} />
-            <circle cx="50" cy="54" r="7" fill="url(#keyhole_glow)" />
-            <path d="M45 60H55L57 74H43L45 60Z" fill="url(#keyhole_glow)" />
+        {/* --- LAYER 2: THE ALGORITHM (The Iterations) --- */}
+        <g opacity="0.8">
+            {/* Connecting Struts (Outer to Middle) - Animated Flow */}
+            <path d="M50 45 L50 35" stroke="#6366f1" strokeWidth="1" strokeDasharray="2 2" className={animated ? "bastion-flow" : ""} />
+            <path d="M90 25 L75 32.5" stroke="#6366f1" strokeWidth="1" strokeDasharray="2 2" className={animated ? "bastion-flow" : ""} />
+            <path d="M10 25 L25 32.5" stroke="#6366f1" strokeWidth="1" strokeDasharray="2 2" className={animated ? "bastion-flow" : ""} />
+            <path d="M50 85 L50 70" stroke="#6366f1" strokeWidth="1" strokeDasharray="2 2" className={animated ? "bastion-flow" : ""} />
+
+            {/* Middle Cube Wireframe */}
+            <path d="M50 20 L75 32.5 L50 45 L25 32.5 Z" stroke="#6366f1" strokeWidth="1.5" fill="none" />
+            <path d="M75 32.5 L75 57.5 L50 70 L50 45" stroke="#6366f1" strokeWidth="1.5" fill="none" />
+            <path d="M25 32.5 L25 57.5 L50 70" stroke="#6366f1" strokeWidth="1.5" fill="none" />
+        </g>
+
+        {/* --- LAYER 1: THE CORE (Entropy) --- */}
+        {/* Re-enabled pulse animation for the core */}
+        <g filter="url(#glow_core)" className={animated ? "animate-pulse" : ""}>
+            {/* Inner Solid Cube */}
+            <path d="M50 35 L62 41 L50 47 L38 41 Z" fill="#4f46e5" />
+            <path d="M62 41 L62 53 L50 59 L50 47 Z" fill="#4338ca" />
+            <path d="M38 41 L50 47 L50 59 L38 53 Z" fill="#3730a3" />
         </g>
     </svg>
   );

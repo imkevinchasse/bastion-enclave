@@ -1,3 +1,4 @@
+
 {
   "name": "bastion-os",
   "private": true,
@@ -10,6 +11,7 @@
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.72",
+    "@vercel/speed-insights": "^1.0.10",
     "fflate": "^0.8.1",
     "lucide-react": "^0.300.0",
     "react": "^18.3.1",

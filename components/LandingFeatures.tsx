@@ -9,28 +9,28 @@ const FEATURES = [
     id: 'chaos',
     icon: <Atom size={28} className="text-indigo-400" />,
     title: "Chaos Engine™",
-    short: "Generate uncrackable passwords effortlessly, every time.",
-    specs: ["PBKDF2-HMAC", "512-BIT POOL", "STATELESS"]
+    short: "Generate high-entropy, deterministic passwords instantly.",
+    specs: ["PBKDF2-HMAC", "REJECTION SAMPLING", "STATELESS"]
   },
   {
     id: 'locker',
     icon: <Archive size={28} className="text-amber-400" />,
     title: "Bastion Locker",
-    short: "Encrypt, compress, and store files locally—no cloud, no leaks.",
-    specs: ["AES-256-GCM", "DEFLATE", "ZERO-KNOWLEDGE"]
+    short: "Encrypt and persistently store files in your browser.",
+    specs: ["AES-256-GCM", "INDEXEDDB STORAGE", "ZERO-KNOWLEDGE"]
   },
   {
     id: 'rolodex',
     icon: <Network size={28} className="text-emerald-400" />,
     title: "Shadow Rolodex",
-    short: "Manage sensitive contacts securely, offline, with instant recall.",
+    short: "Securely manage sensitive contacts in an encrypted graph.",
     specs: ["GRAPH DB", "IN-MEMORY", "OPAQUE BLOB"]
   },
   {
     id: 'neural',
     icon: <Cpu size={28} className="text-violet-400" />,
     title: "Neural Auditor",
-    short: "Run AI security checks offline on your own GPU.",
+    short: "Run AI security checks offline on your own hardware.",
     specs: ["TINYLLAMA 1.1B", "WEBGPU", "AIR-GAPPED LOGIC"]
   }
 ];
@@ -38,11 +38,11 @@ const FEATURES = [
 const GLOSSARY: Record<string, { title: string, body: string }> = {
     "PBKDF2-HMAC": {
         title: "Password-Based Key Derivation Function 2",
-        body: "A cryptographic standard used to prevent brute-force attacks. We run 100,000 iterations of SHA-256 hashing on your master password to derive the encryption key. This adds a massive time-cost to any attacker trying to guess your password."
+        body: "A cryptographic standard used to prevent brute-force attacks. We run 210,000 iterations of SHA-256/512 hashing on your master password. This makes the derivation computationally expensive, slowing down attackers."
     },
-    "512-BIT POOL": {
-        title: "512-Bit Entropy Pool",
-        body: "We initialize a cryptographically secure random number generator (CSPRNG) that pulls 64 bytes (512 bits) of noise from your OS kernel. This creates a search space of 2^512, which is thermodynamically impossible to brute-force."
+    "REJECTION SAMPLING": {
+        title: "Unbiased Rejection Sampling",
+        body: "Standard modulo arithmetic introduces bias when generating passwords. We implement Rejection Sampling to discard any random bytes that would cause uneven distribution, ensuring every character in your password has a mathematically equal probability of selection."
     },
     "STATELESS": {
         title: "Stateless Architecture",
@@ -50,11 +50,11 @@ const GLOSSARY: Record<string, { title: string, body: string }> = {
     },
     "AES-256-GCM": {
         title: "Advanced Encryption Standard (GCM)",
-        body: "The gold standard for symmetric encryption. We use Galois/Counter Mode (GCM) which provides both confidentiality (they can't read it) and integrity (they can't modify it without us knowing)."
+        body: "The gold standard for symmetric encryption. We use Galois/Counter Mode (GCM) with unique random 12-byte IVs for every operation, providing both confidentiality (they can't read it) and integrity (they can't modify it without us knowing)."
     },
-    "DEFLATE": {
-        title: "DEFLATE Compression",
-        body: "Before encryption, files are compressed using the DEFLATE algorithm (LZ77 + Huffman coding). This reduces storage size and adds a layer of obfuscation before the data is turned into random noise."
+    "INDEXEDDB STORAGE": {
+        title: "Encrypted Object Store",
+        body: "Large files are encrypted and stored in the browser's IndexedDB database. This allows you to store gigabytes of encrypted data securely on your device, persisting across sessions without bloating the main vault file."
     },
     "ZERO-KNOWLEDGE": {
         title: "Zero-Knowledge Architecture",
@@ -91,13 +91,13 @@ const DEEP_DIVES: Record<string, { title: string, subtitle: string, desc: string
         title: "Chaos Engine™",
         subtitle: "Deterministic Entropy Generator",
         desc: "The Chaos Engine removes the need to store passwords entirely. Instead of retrieving a password from a database, it mathematically computes it on-the-fly using your Master Key and the Service Name as inputs. Because the result is deterministic, you get the same password every time without ever saving it.",
-        technical: ["HMAC-SHA512 Flux", "Bitwise XOR Scrambling", "Context-Aware Salting"]
+        technical: ["HMAC-SHA512 Flux", "Domain Separated Salts", "Context-Aware Salting"]
     },
     "locker": {
         title: "Bastion Locker",
         subtitle: "Client-Side Encrypted File System",
-        desc: "Traditional cloud storage uploads your file, then encrypts it. Bastion Locker encrypts the file inside your browser first. The cloud only ever sees a random stream of bytes. We use a unique 256-bit key for every single file, wrapped by your master key.",
-        technical: ["Stream Cipher Chaining", "MIME-Type Obfuscation", "Integrity Hashing"]
+        desc: "Traditional cloud storage uploads your file, then encrypts it. Bastion Locker encrypts the file inside your browser first. The encrypted payload is then stored in the browser's persistent database. We use a unique 256-bit key for every single file, wrapped by your master key.",
+        technical: ["Stream Cipher Chaining", "Split-Horizon Storage", "Integrity Hashing"]
     },
     "rolodex": {
         title: "Shadow Rolodex",
@@ -127,7 +127,7 @@ export const LandingFeatures: React.FC = () => {
       <div className="relative pl-8 border-l-2 border-indigo-500/30">
          <h2 className="text-2xl font-bold text-white mb-4">Core Value Proposition</h2>
          <p className="text-slate-400 text-lg leading-relaxed max-w-3xl">
-            Bastion is built on a modular, offline-first architecture. We reject the SaaS subscription model of selling your own data back to you.
+            Bastion is built on a modular, offline-first architecture. We prioritize user sovereignty, ensuring you maintain complete control and ownership of your encrypted data at all times.
          </p>
       </div>
 

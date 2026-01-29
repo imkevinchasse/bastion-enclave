@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { zip, Zippable } from 'fflate';
@@ -53,9 +54,9 @@ export const Extensions: React.FC = () => {
     // 1. MANIFEST V3 (Universal for Chromium) / V2 for Firefox compatibility
     const manifest = {
       "manifest_version": 3,
-      "name": "Bastion Connector",
+      "name": "Bastion Enclave Connector",
       "version": "1.0.0",
-      "description": "Secure bridge for Bastion Vault",
+      "description": "Secure bridge for Bastion Enclave Vault",
       "icons": { "48": "icon.png" },
       "permissions": ["storage"],
       "content_scripts": [
@@ -72,7 +73,7 @@ export const Extensions: React.FC = () => {
     const contentScript = `
 const isBastion = document.querySelector('meta[name="bastion-app"]');
 if (isBastion) {
-  console.log('[Bastion] Handshake Initiated');
+  console.log('[Bastion Enclave] Handshake Initiated');
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
     if (event.data.type === 'BASTION_SYNC' && event.data.payload) {
@@ -94,7 +95,7 @@ if (isBastion) {
       'manifest.json': [new TextEncoder().encode(JSON.stringify(manifest, null, 2)), { level: 0 }],
       'content.js': [new TextEncoder().encode(contentScript), { level: 0 }],
       'icon.png': [iconData, { level: 0 }],
-      'README_INSTALL.txt': [new TextEncoder().encode(`BASTION INSTALLATION GUIDE
+      'README_INSTALL.txt': [new TextEncoder().encode(`BASTION ENCLAVE CONNECTOR INSTALLATION
 1. Unzip this folder.
 2. Open your browser extensions page.
 3. Enable 'Developer Mode' (Top right switch).
@@ -112,7 +113,7 @@ if (isBastion) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Bastion-Connector-${browser}.zip`;
+      a.download = `Bastion-Enclave-Connector-${browser}.zip`;
       a.click();
       URL.revokeObjectURL(url);
       
@@ -164,7 +165,7 @@ if (isBastion) {
              <div>
                 <h3 className="text-2xl font-bold text-white mb-2">Step 1: Download Connector</h3>
                 <p className="text-slate-400 max-w-md mx-auto">
-                   Since Bastion is a private secure vault, you must generate your own unique connector file.
+                   Since Bastion Enclave is a private secure vault, you must generate your own unique connector file.
                 </p>
              </div>
              
@@ -240,7 +241,7 @@ if (isBastion) {
                   </p>
               </div>
               <Button onClick={() => window.location.reload()}>
-                  Refresh Bastion
+                  Refresh Bastion Enclave
               </Button>
           </div>
         );
