@@ -90,25 +90,36 @@ Suggestions: [Tip 1, Tip 2]`;
 export const runPhishingAnalysis = async (text: string): Promise<PhishingResult> => {
     if (!engine) throw new Error("Engine not initialized");
 
-    const prompt = `Analyze this text for social engineering or phishing indicators.
-Text: "${text.substring(0, 500)}"
+    // Capture explicit signals from footer (address, unsubscribe)
+    const truncated = text.substring(0, 2000);
 
-Look for:
-- Urgency or Fear
-- Authority mimicking
-- Financial requests
-- Suspicious links/instructions
+    const prompt = `Classify this email.
 
-Response format:
-Risk: [SAFE/SUSPICIOUS/DANGEROUS]
-Confidence: [0-100]
-Indicators: [Urgency, Money, etc.]
-Analysis: [One sentence summary]`;
+Input Text: "${truncated}"
+
+Instructions:
+1. Identify INTENT.
+   - Selling a product, discount, course, or subscription? -> RISK: SAFE (Marketing)
+   - Threatening arrest, account ban, seizure of funds, or demanding password? -> RISK: DANGEROUS (Phishing)
+
+2. Analyze URGENCY type.
+   - "Sale ends today" / "50% off now" -> SAFE.
+   - "Verify account now" / "Your funds will be seized" -> DANGEROUS.
+
+3. Output Format.
+   Risk: [SAFE / SUSPICIOUS / DANGEROUS]
+   Confidence: [0-100]
+   Indicators: [List triggers]
+   Analysis: [Reasoning]
+
+Examples:
+- "50% off Cambly subscription, ends tomorrow" -> Risk: SAFE
+- "Customs seized your package, pay fee now" -> Risk: DANGEROUS`;
 
     try {
         const response = await engine.chat.completions.create({
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 256,
+            max_tokens: 200, // Short output
             temperature: 0.1,
         });
 
@@ -246,18 +257,29 @@ function parsePhishingOutput(text: string): PhishingResult {
     }
 
     let riskLevel: 'SAFE' | 'SUSPICIOUS' | 'DANGEROUS' = 'SUSPICIOUS';
+    
     if (riskMatch) {
         riskLevel = riskMatch[1].toUpperCase() as any;
     } else {
-        // Keyword fallback
-        if (text.toLowerCase().includes('safe')) riskLevel = 'SAFE';
-        if (text.toLowerCase().includes('danger') || text.toLowerCase().includes('phish')) riskLevel = 'DANGEROUS';
+        // Keyword fallback if model format breaks
+        const lower = text.toLowerCase();
+        if (lower.includes('safe') || lower.includes('marketing')) riskLevel = 'SAFE';
+        else if (lower.includes('dangerous') || lower.includes('phish') || lower.includes('scam')) riskLevel = 'DANGEROUS';
+    }
+
+    // Safety Override: If keywords imply marketing but model said Dangerous, check context
+    if (riskLevel === 'DANGEROUS') {
+        const lower = text.toLowerCase();
+        if (lower.includes('marketing') && lower.includes('safe')) {
+             // Model hallucinated danger but reasoning says marketing
+             riskLevel = 'SAFE'; 
+        }
     }
 
     return {
         riskLevel,
-        confidence: confMatch ? parseInt(confMatch[1], 10) : 70,
-        indicators: indicators.length > 0 ? indicators : ["General Suspicion"],
-        analysis: analysisMatch ? analysisMatch[1].trim() : "Analysis completed based on patterns."
+        confidence: confMatch ? parseInt(confMatch[1], 10) : 85,
+        indicators: indicators.length > 0 ? indicators : ["Content Analysis"],
+        analysis: analysisMatch ? analysisMatch[1].trim() : text.substring(0, 100) + "..."
     };
 }
