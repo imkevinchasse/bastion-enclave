@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { TopNav } from './TopNav';
-import { LandingFeatures } from './LandingFeatures';
-import { Button } from './Button';
-import { BrandLogo } from './BrandLogo';
+import { TopNav } from '@/components/TopNav';
+import { LandingFeatures } from '@/components/LandingFeatures';
+import { Button } from '@/components/Button';
+import { BrandLogo } from '@/components/BrandLogo';
 import { ArrowRight, HeartHandshake, Zap, HardDrive, FileJson, Binary, Shield, ServerOff, Scaling, Terminal, Lock, Globe, Database, Anchor, RefreshCw, Cpu, CheckCircle, GitFork, ShieldCheck, Fingerprint, Activity } from 'lucide-react';
-import { PublicPage } from '../types';
-import { ProvenanceService, ProvenanceReport } from '../services/provenance';
+import { PublicPage } from '@/types';
+import { ProvenanceService, ProvenanceReport } from '@/services/provenance';
 
 interface LandingPageProps {
   onNavigate: (page: PublicPage) => void;
