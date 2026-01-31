@@ -103,7 +103,7 @@ export class ProvenanceService {
                 { name: "ECDSA", hash: { name: "SHA-256" } },
                 key,
                 signature as any, // Cast to any prevents strict type mismatch with BufferSource
-                data
+                data as any       // Cast to any prevents strict type mismatch with BufferSource
             );
 
             return {
