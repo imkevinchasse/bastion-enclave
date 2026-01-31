@@ -312,7 +312,9 @@ export class SecretSharer {
         const payload = new Uint8Array(12 + encryptedSecret.byteLength);
         payload.set(iv, 0);
         payload.set(new Uint8Array(encryptedSecret), 12);
-        const payloadHex = ChaosLock.buf2hex(payload); // Updated to accept Uint8Array or casted
+        
+        // Fix: Explicitly cast payload to any to satisfy buf2hex's type expectations in all environments
+        const payloadHex = ChaosLock.buf2hex(payload as any);
 
         let secretInt = 0n;
         for (const b of sessionKeyBytes) {
