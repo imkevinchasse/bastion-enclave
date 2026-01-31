@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { BrandLogo } from './BrandLogo';
-import { Signal, Lock, Home, Menu, X, ArrowRight, BookOpen, FileText, ShieldAlert } from 'lucide-react';
+import { Signal, Lock, Home, Menu, X, ArrowRight, BookOpen, FileText, ShieldAlert, CheckCircle } from 'lucide-react';
 import { PublicPage } from '../types';
 
 interface TopNavProps {
@@ -30,8 +30,10 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
           >
               <BrandLogo size={32} className="drop-shadow-lg group-hover:brightness-125 transition-all" />
               <div className="flex flex-col">
-                <span className="font-bold text-lg text-white tracking-tight leading-none group-hover:text-indigo-100 transition-colors">Bastion Enclave</span>
-                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest leading-none mt-1">Protocol V3</span>
+                <div className="flex items-center gap-2">
+                    <span className="font-bold text-lg text-white tracking-tight leading-none group-hover:text-indigo-100 transition-colors">Bastion Enclave</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest leading-none mt-1">Sovereign-V3.5</span>
               </div>
           </div>
 

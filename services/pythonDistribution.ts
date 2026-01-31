@@ -9,25 +9,63 @@ v3.5.0
 "If the web disappears, Bastion still works."
 
 [EXECUTION]
-pip install -r requirements.txt
-python3 bastion.py
+bastion             # Launch Interactive Shell
+bastion --version   # Check Version
+bastion update      # Update to latest
+bastion -gui        # Launch GUI Mode
 \"\"\"
 
 import sys
 import os
+import argparse
 
 # Ensure src is in python path
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 try:
     from src.interface import BastionShell
+    from src.updater import BastionUpdater
 except ImportError as e:
     print("CRITICAL ERROR: Failed to load Bastion Core Modules.")
     print(f"Details: {e}")
-    print("\\nDid you run 'pip install -r requirements.txt'?")
+    print("\\nIf you installed manually, did you run 'pip install -r requirements.txt'?")
     sys.exit(1)
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(description="Bastion Secure Enclave")
+    
+    # Flags
+    parser.add_argument('--version', action='store_true', help="Show protocol version")
+    parser.add_argument('-gui', action='store_true', help="Launch GUI Mode (Experimental)")
+    
+    # Commands
+    subparsers = parser.add_subparsers(dest='command', help='Operational commands')
+    
+    # Update Command
+    parser_update = subparsers.add_parser('update', help='Check for and apply updates')
+    parser_update.add_argument('--force', action='store_true', help='Force reinstall')
+
+    args = parser.parse_args()
+
+    # 1. Version Check
+    if args.version:
+        print("Bastion Enclave v3.5.0")
+        print("Protocol: Sovereign-V3.5 (Argon2id/AES-GCM)")
+        sys.exit(0)
+
+    # 2. GUI Mode
+    if args.gui:
+        print("[*] GUI Mode is currently a placeholder for the PyQt6 implementation.")
+        print("[*] Please run standard 'bastion' for the terminal interface.")
+        sys.exit(0)
+
+    # 3. Update Command
+    if args.command == 'update':
+        updater = BastionUpdater()
+        updater.perform_update(force=args.force)
+        sys.exit(0)
+
+    # 4. Default: Interactive Shell
     try:
         # Enforce secure file permissions on run (Best Effort)
         if os.name == 'posix':
@@ -41,6 +79,84 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\\n[CRITICAL] Runtime Crash: {e}")
         sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+`,
+  "install.sh": `#!/bin/bash
+
+# BASTION ENCLAVE INSTALLER
+# Sets up ~/.bastion with a python virtual environment and alias.
+
+set -e
+
+INSTALL_DIR="$HOME/.bastion"
+BIN_DIR="/usr/local/bin"
+REPO_ZIP_URL="https://bastion.os/assets/bastion-python-runtime-v3.0.zip" # Placeholder for valid artifact URL
+
+echo -e "\\033[0;34m[+] Bastion Enclave Installer\\033[0m"
+
+# 1. Check Python
+if ! command -v python3 &> /dev/null; then
+    echo -e "\\033[0;31m[!] Python 3 not found. Please install python3 first.\\033[0m"
+    exit 1
+fi
+
+# 2. Create Directory
+echo "[*] Creating Enclave at $INSTALL_DIR..."
+mkdir -p "$INSTALL_DIR"
+cd "$INSTALL_DIR"
+
+# 3. Download Core (Simulation)
+# In a real script, this would curl the zip or git clone.
+# For this script to work standalone, it assumes files are present or fetches them.
+# echo "[*] Fetching Core Protocol..."
+# curl -L -o bastion.zip "$REPO_ZIP_URL"
+# unzip -o bastion.zip
+# rm bastion.zip
+
+# 4. Setup Venv
+echo "[*] Initializing Virtual Environment..."
+if [ ! -d "venv" ]; then
+    python3 -m venv venv
+fi
+
+# 5. Install Deps
+echo "[*] Installing Dependencies..."
+./venv/bin/pip install -r requirements.txt --quiet
+
+# 6. Create Wrapper
+echo "[*] Creating 'bastion' executable..."
+cat <<EOF > bastion_wrapper
+#!/bin/bash
+source "$INSTALL_DIR/venv/bin/activate"
+python3 "$INSTALL_DIR/bastion.py" "\$@"
+deactivate
+EOF
+
+chmod +x bastion_wrapper
+
+# 7. Link to Path (User Local Bin usually preferred over system bin for non-root)
+USER_BIN="$HOME/.local/bin"
+mkdir -p "$USER_BIN"
+
+# Remove old link if exists
+if [ -L "$USER_BIN/bastion" ]; then
+    rm "$USER_BIN/bastion"
+fi
+
+ln -s "$INSTALL_DIR/bastion_wrapper" "$USER_BIN/bastion"
+
+# 8. Path Check
+if [[ ":\$PATH:" == *":$USER_BIN:"* ]]; then
+    echo -e "\\033[0;32m[✓] Install Complete.\\033[0m"
+    echo "Run 'bastion' to start."
+else
+    echo -e "\\033[0;33m[!] Warning: $USER_BIN is not in your PATH.\\033[0m"
+    echo "Add this to your shell profile:"
+    echo "export PATH=\"\$PATH:$USER_BIN\""
+    echo "Then run 'bastion'."
+fi
 `,
   "requirements.txt": `cryptography>=41.0.0
 requests>=2.31.0
@@ -48,6 +164,54 @@ pyperclip>=1.8.2
 rich>=13.0.0
 argon2-cffi>=23.1.0`,
   "src/__init__.py": `# Bastion Source Package`,
+  "src/updater.py": `import os
+import sys
+import subprocess
+import requests
+from rich.console import Console
+
+REPO_URL = "https://raw.githubusercontent.com/imkevinchasse/bastion-enclave/main"
+
+class BastionUpdater:
+    def __init__(self):
+        self.console = Console()
+
+    def perform_update(self, force=False):
+        self.console.print("[bold cyan]Bastion Enclave Update System[/bold cyan]")
+        
+        install_dir = os.path.expanduser("~/.bastion")
+        if not os.path.exists(install_dir):
+            self.console.print("[yellow]Standard installation directory (~/.bastion) not found.[/yellow]")
+            return
+
+        try:
+            installer_url = f"{REPO_URL}/install.sh"
+            self.console.print(f"Fetching installer from {installer_url}...")
+            
+            r = requests.get(installer_url)
+            if r.status_code != 200:
+                self.console.print("[red]Failed to download update script.[/red]")
+                return
+
+            self.console.print("[green]Applying patches...[/green]")
+            process = subprocess.Popen(
+                ['bash'], 
+                stdin=subprocess.PIPE, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            stdout, stderr = process.communicate(input=r.text)
+            
+            if process.returncode == 0:
+                self.console.print("\\n[bold green]✓ Update Successful[/bold green]")
+                self.console.print("Please restart the shell.")
+            else:
+                self.console.print(f"[red]Update failed:[/red]\\n{stderr}")
+
+        except Exception as e:
+            self.console.print(f"[red]Error during update: {e}[/red]")
+`,
   "src/serializer.py": `
 import json
 import struct

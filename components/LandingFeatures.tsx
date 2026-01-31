@@ -127,7 +127,7 @@ export const LandingFeatures: React.FC = () => {
       <div className="relative pl-8 border-l-2 border-indigo-500/30">
          <h2 className="text-2xl font-bold text-white mb-4">Architectural Guarantees</h2>
          <p className="text-slate-400 text-lg leading-relaxed max-w-3xl">
-            Bastion Protocol v2.8 introduces <strong>Sovereign-V3</strong>: a strict, memory-hard cryptographic standard designed to resist GPU-accelerated brute force attacks. We do not ask for your trust; we prove our security through transparent, open-source architecture.
+            Bastion Enclave introduces <strong>Sovereign-V3.5</strong>: a strict, memory-hard cryptographic standard designed to resist GPU-accelerated brute force attacks. We do not ask for your trust; we prove our security through transparent, open-source architecture.
          </p>
       </div>
 
@@ -152,7 +152,7 @@ export const LandingFeatures: React.FC = () => {
                     
                     <h3 className="text-xl font-bold text-slate-200 mb-3 group-hover:text-white flex items-center gap-2">
                         {feature.title}
-                        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-slate-500 group-hover:text-indigo-400">V3 SPEC</span>
+                        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-slate-500 group-hover:text-indigo-400">V3.5 SPEC</span>
                     </h3>
                     <p className="text-lg text-slate-400 leading-relaxed mb-6 flex-1">
                         {feature.short}

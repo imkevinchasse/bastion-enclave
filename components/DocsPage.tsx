@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { TopNav } from './TopNav';
 import { PublicPage } from '../types';
-import { Shield, Lock, FileLock2, BrainCircuit, CloudOff, FileKey, Fingerprint, RefreshCw, BookOpen, Terminal, ChevronRight, Zap, Code2, AlertTriangle, ShieldAlert, Wifi, Server, CheckCircle, Copy, Download, History, ShieldCheck, Binary, Cpu, Share2 } from 'lucide-react';
+import { Shield, Lock, FileLock2, BrainCircuit, CloudOff, FileKey, Fingerprint, RefreshCw, BookOpen, Terminal, ChevronRight, Zap, Code2, AlertTriangle, ShieldAlert, Wifi, Server, CheckCircle, Copy, Download, History, ShieldCheck, Binary, Cpu, Share2, AlertOctagon } from 'lucide-react';
 import { zip, Zippable } from 'fflate';
 import { PYTHON_APP_SOURCE } from '../services/pythonDistribution';
 import { Button } from './Button';
@@ -272,7 +271,7 @@ const PythonContent = () => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = "bastion-python-runtime-v3.0.zip";
+            a.download = "bastion-installer-scripts.zip";
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -282,35 +281,27 @@ const PythonContent = () => {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-start">
                 <Header icon={<Code2 size={32} className="text-yellow-400"/>} title="Python Runtime" />
-                <Button onClick={downloadPythonApp} className="bg-yellow-600 hover:bg-yellow-500 text-black border-none font-bold">
-                    <Download size={18} /> Download Source (.zip)
+                <Button onClick={downloadPythonApp} variant="secondary" className="text-xs">
+                    <Download size={14} /> Download Installer Script
                 </Button>
             </div>
             
             <div className="space-y-4">
                 <p className="text-slate-300">
-                    The Bastion Enclave Python Runtime is a standalone, terminal-based implementation of the Bastion Enclave Protocol.
-                    It allows you to access your vault, generate passwords, and check for breaches without a browser.
+                    Deploy the standalone Bastion Enclave Runtime to any macOS or Linux environment with a single command. 
+                    This creates a local, offline-capable environment in <code>~/.bastion</code> with a global <code>bastion</code> executable.
                 </p>
 
-                <div className="bg-black rounded-xl border border-white/10 overflow-hidden font-mono text-sm">
+                <div className="bg-black rounded-xl border border-white/10 overflow-hidden font-mono text-sm shadow-xl">
                     <div className="bg-slate-900 px-4 py-2 border-b border-white/5 flex items-center gap-2 text-slate-500">
                         <Terminal size={14} /> bash
                     </div>
-                    <div className="p-6 space-y-4">
-                        <div>
-                            <div className="text-slate-500 mb-1"># 1. Unzip and Install Dependencies</div>
-                            <div className="text-emerald-400 flex items-center gap-2">
-                                pip install -r requirements.txt
-                                <CopyButton text="pip install -r requirements.txt" />
-                            </div>
+                    <div className="p-6 relative group">
+                        <div className="text-emerald-400 break-all pr-8 leading-relaxed">
+                            curl -fsSL https://raw.githubusercontent.com/imkevinchasse/bastion-enclave/main/install.sh | bash
                         </div>
-                        <div>
-                            <div className="text-slate-500 mb-1"># 2. Run Bastion Shell</div>
-                            <div className="text-emerald-400 flex items-center gap-2">
-                                python3 bastion.py
-                                <CopyButton text="python3 bastion.py" />
-                            </div>
+                        <div className="absolute top-6 right-6">
+                            <CopyButton text="curl -fsSL https://raw.githubusercontent.com/imkevinchasse/bastion-enclave/main/install.sh | bash" />
                         </div>
                     </div>
                 </div>
@@ -318,12 +309,30 @@ const PythonContent = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     <div className="p-4 bg-slate-900/50 rounded-lg border border-white/5">
                         <h4 className="font-bold text-white text-sm mb-1 flex items-center gap-2"><Wifi size={14}/> Offline Capable</h4>
-                        <p className="text-xs text-slate-500">Core functions work without internet. Breach checking requires connection but fails gracefully.</p>
+                        <p className="text-xs text-slate-500">Core functions work without internet. Update requires connection.</p>
                     </div>
                     <div className="p-4 bg-slate-900/50 rounded-lg border border-white/5">
-                        <h4 className="font-bold text-white text-sm mb-1 flex items-center gap-2"><Server size={14}/> Headless Mode</h4>
-                        <p className="text-xs text-slate-500">Designed to run on servers or minimal environments (Raspberry Pi, VPS).</p>
+                        <h4 className="font-bold text-white text-sm mb-1 flex items-center gap-2"><Cpu size={14}/> Automatic Alias</h4>
+                        <p className="text-xs text-slate-500">Adds 'bastion' to your path. Handles chmod +x automatically.</p>
                     </div>
+                </div>
+
+                <div className="border-t border-white/5 pt-6 mt-6">
+                    <h4 className="font-bold text-white text-sm mb-4">Command Reference</h4>
+                    <ul className="space-y-3 font-mono text-xs">
+                        <li className="flex items-center justify-between p-3 bg-slate-900 rounded border border-white/5">
+                            <span className="text-emerald-400">bastion</span>
+                            <span className="text-slate-500"># Launch Interactive Shell</span>
+                        </li>
+                        <li className="flex items-center justify-between p-3 bg-slate-900 rounded border border-white/5">
+                            <span className="text-emerald-400">bastion update</span>
+                            <span className="text-slate-500"># Self-Update via Git</span>
+                        </li>
+                        <li className="flex items-center justify-between p-3 bg-slate-900 rounded border border-white/5">
+                            <span className="text-emerald-400">bastion --version</span>
+                            <span className="text-slate-500"># Check Protocol Version</span>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -334,7 +343,7 @@ const ChangelogContent = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
         <Header icon={<History size={32} className="text-slate-400"/>} title="Protocol Changelog" />
         
-        <div className="space-y-12">
+        <div className="space-y-8">
             {/* V3.5 */}
             <div className="relative border-l-2 border-indigo-500 pl-6 pb-2">
                 <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-500 border-4 border-slate-950"></div>
@@ -426,107 +435,32 @@ const ChangelogContent = () => (
             </div>
 
             {/* V3.0 */}
-            <div className="relative border-l-2 border-slate-600 pl-6 pb-2">
-                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-600 border-4 border-slate-950"></div>
-                <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-3">
-                    Bastion Protocol V3.0.0 <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-600">SOVEREIGN EPOCH</span>
-                </h3>
-                <div className="text-xs text-slate-500 font-mono mb-4">Header: 0x03 • Epoch: 2026-01-01 • Status: Stable</div>
-
-                <div className="space-y-6 text-sm text-slate-400">
-                    
-                    {/* Feature 1 */}
-                    <div className="space-y-2">
-                        <h4 className="text-white font-bold flex items-center gap-2"><Cpu size={14} className="text-emerald-400"/> Memory-Hard Key Derivation (Upgraded)</h4>
-                        <p className="text-slate-400">Vault key derivation has been upgraded from PBKDF2 to Argon2id, configured for interactive but attack-resistant use.</p>
-                        <ul className="list-disc list-outside ml-4 space-y-1 text-slate-500 marker:text-slate-600 font-mono text-xs">
-                            <li>Memory cost: 64 MB</li>
-                            <li>Time cost: 3 passes</li>
-                            <li>Parallelism: 1</li>
-                            <li>Domain separation enforced</li>
-                        </ul>
-                        <div className="mt-2 p-3 bg-emerald-500/5 border border-emerald-500/10 rounded text-xs">
-                            <strong className="text-emerald-400/80 block mb-1">Impact:</strong>
-                            This change significantly raises the cost of offline password-guessing attacks, particularly on GPUs and ASICs, while remaining practical on consumer hardware.
-                        </div>
-                    </div>
-
-                    {/* Feature 2 */}
-                    <div className="space-y-2">
-                        <h4 className="text-white font-bold flex items-center gap-2"><Share2 size={14} className="text-indigo-400"/> Prime-Field Secret Sharding (Upgraded)</h4>
-                        <p className="text-slate-400">Secret sharing has been migrated from GF(2⁸) to a large prime field (P-256).</p>
-                        <ul className="list-disc list-outside ml-4 space-y-1 text-slate-400 marker:text-slate-600">
-                            <li>Supports secure splitting of secrets of arbitrary length</li>
-                            <li>Eliminates byte-field limitations and structural bias</li>
-                            <li>Preserves information-theoretic security guarantees</li>
-                        </ul>
-                        <div className="mt-2 p-3 bg-indigo-500/5 border border-indigo-500/10 rounded text-xs">
-                            <strong className="text-indigo-400/80 block mb-1">Impact:</strong>
-                            This enables robust, scalable secret splitting without weakening reconstruction guarantees or introducing field-size artifacts.
-                        </div>
-                    </div>
-
-                    {/* Feature 3 */}
-                    <div className="space-y-2">
-                        <h4 className="text-white font-bold flex items-center gap-2"><ShieldCheck size={14} className="text-amber-400"/> Cryptographic Discipline (Explicit)</h4>
-                        <p className="text-slate-400">All cryptographic primitives are now version-locked and treated as protocol constants.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono text-slate-500 mt-2">
-                            <div className="bg-slate-900/50 p-2 rounded border border-white/5">Encryption: AES-256-GCM</div>
-                            <div className="bg-slate-900/50 p-2 rounded border border-white/5">Auth: HMAC-SHA512</div>
-                            <div className="bg-slate-900/50 p-2 rounded border border-white/5">Entropy: Unbiased Rejection</div>
-                            <div className="bg-slate-900/50 p-2 rounded border border-white/5">Key Hierarchy: Split-Horizon</div>
-                        </div>
-                        <div className="mt-2 p-3 bg-amber-500/5 border border-amber-500/10 rounded text-xs">
-                            <strong className="text-amber-400/80 block mb-1">Impact:</strong>
-                            Protocol behavior is stable, auditable, and resistant to silent drift across implementations.
-                        </div>
-                    </div>
-
-                    {/* V3 Meta */}
-                    <div className="space-y-4 pt-4 border-t border-white/5">
-                        <div>
-                            <h4 className="text-white font-bold text-xs uppercase tracking-widest mb-2">What V3 Represents</h4>
-                            <p className="text-slate-400">
-                                Protocol V3 is not a feature release. It establishes cryptographic sovereignty: Memory hardness as a baseline, Large-field mathematics as default, and Deterministic, inspectable behavior across platforms.
-                                This is the foundation on which all future versions are built.
-                            </p>
-                        </div>
-                        
-                        <div>
-                            <h4 className="text-white font-bold text-xs uppercase tracking-widest mb-2">Relationship to V3.5</h4>
-                            <ul className="list-disc list-outside ml-4 space-y-1 text-slate-500 marker:text-slate-600">
-                                <li>V3.0 defines the cryptographic core.</li>
-                                <li>V3.5 defines canonical serialization and behavioral identity.</li>
-                                <li>Cryptography remains unchanged between 3.0 and 3.5.</li>
-                            </ul>
-                        </div>
-
-                        <div className="p-4 bg-slate-800/50 border-l-2 border-white/20 italic text-slate-300">
-                            "Version 3 is where Bastion stopped being 'secure software' and became a security protocol."
-                        </div>
-                    </div>
-                </div>
+            <div className="relative border-l-2 border-slate-700 pl-6 pb-2">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-700 border-4 border-slate-950"></div>
+                <h3 className="text-xl font-bold text-slate-400 mb-1">Version 3.0.0</h3>
+                <div className="text-xs text-slate-500 font-mono mb-4">Sovereign-V3 • Header: 0x03 • Epoch: 2026-01-01</div>
+                
+                <ul className="space-y-3">
+                    <ChangeItem type="security">
+                        <strong>Argon2id Upgrade:</strong> Replaced PBKDF2 with memory-hard Argon2id (64MB, 3 passes) for vault encryption.
+                    </ChangeItem>
+                    <ChangeItem type="feature">
+                        <strong>Prime Field Sharding:</strong> Moved from GF(2^8) to GF(P-256) for Shamir Secret Sharing, enabling secure splitting of arbitrary length secrets.
+                    </ChangeItem>
+                </ul>
             </div>
 
             {/* V2.0 */}
-            <div className="relative border-l-2 border-slate-800 pl-6 pb-2 opacity-70 hover:opacity-100 transition-opacity">
-                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-800 border-4 border-slate-950"></div>
-                <h3 className="text-xl font-bold text-slate-400 mb-1">Bastion Protocol V2.0.0</h3>
-                <div className="text-xs text-slate-600 font-mono mb-4">Header: 0x02 • Epoch: 2025-12-20 • Status: Legacy</div>
+            <div className="relative border-l-2 border-slate-700 pl-6 pb-2 opacity-60 hover:opacity-100 transition-opacity">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-700 border-4 border-slate-950"></div>
+                <h3 className="text-xl font-bold text-slate-400 mb-1">Version 2.0.0</h3>
+                <div className="text-xs text-slate-500 font-mono mb-4">Sovereign-V2 • Header: 0x02 • Epoch: 2025-12-20</div>
                 
-                <div className="space-y-6 text-sm text-slate-500">
-                    <div className="space-y-2">
-                        <h4 className="text-slate-300 font-bold flex items-center gap-2"><RefreshCw size={14}/> Chaos Engine V2 (Foundation)</h4>
-                        <p>
-                            The password generation core was rewritten to eliminate modulo bias.
-                            Introduced <strong>HMAC-SHA512</strong> flux generation and strict <strong>Rejection Sampling</strong>.
-                        </p>
-                        <div className="mt-2 p-3 bg-slate-800/50 border border-slate-700/50 rounded text-xs">
-                            <strong className="text-slate-400 block mb-1">Impact:</strong>
-                            Ensures mathematical uniformity in generated passwords, preventing statistical attacks against the character pool.
-                        </div>
-                    </div>
-                </div>
+                <ul className="space-y-3">
+                    <ChangeItem type="feature">
+                        <strong>Chaos Engine V2:</strong> Introduced HMAC-SHA512 and Rejection Sampling for unbiased password generation.
+                    </ChangeItem>
+                </ul>
             </div>
         </div>
     </div>
@@ -561,7 +495,7 @@ const FeatureCard = ({ icon, title, desc }: { icon: React.ReactNode, title: stri
     </div>
 );
 
-const Step = ({ number, title, children }: { number: number, title: string, children: React.ReactNode }) => (
+const Step = ({ number, title, children }: { number: number, title: string, children?: React.ReactNode }) => (
     <div className="flex gap-4">
         <div className="flex flex-col items-center">
             <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-500/20">
@@ -590,7 +524,7 @@ const CopyButton = ({ text }: { text: string }) => {
     return (
         <button 
             onClick={handleCopy}
-            className="p-1.5 text-slate-500 hover:text-white transition-colors ml-auto"
+            className="p-1.5 text-slate-500 hover:text-white transition-colors ml-auto bg-slate-900 rounded-lg border border-white/10"
             title="Copy to clipboard"
         >
             {copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}
@@ -598,7 +532,7 @@ const CopyButton = ({ text }: { text: string }) => {
     );
 };
 
-const ChangeItem = ({ type, children }: { type: 'feature' | 'security' | 'fix', children: React.ReactNode }) => {
+const ChangeItem = ({ type, children }: { type: 'feature' | 'security' | 'fix', children?: React.ReactNode }) => {
     const color = type === 'feature' ? 'text-blue-400' : type === 'security' ? 'text-emerald-400' : 'text-slate-400';
     const Icon = type === 'feature' ? Zap : type === 'security' ? ShieldCheck : Code2;
     

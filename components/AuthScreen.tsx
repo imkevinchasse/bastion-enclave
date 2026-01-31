@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { TopNav } from './TopNav';
-import { RefreshCw, Copy, Check, Eye, EyeOff, ShieldAlert, KeyRound, Upload, Trash2, LogIn, UserPlus, HelpCircle, HardDrive, FileText, Scan, Fingerprint, Info, Terminal } from 'lucide-react';
+import { RefreshCw, Copy, Check, Eye, EyeOff, ShieldAlert, KeyRound, Upload, Trash2, LogIn, UserPlus, HelpCircle, HardDrive, FileText, Scan, Fingerprint, Info, Terminal, ShieldCheck } from 'lucide-react';
 import { ChaosLock, ChaosEngine } from '../services/cryptoService';
 import { VaultState, PublicPage, VaultFlags } from '../types';
 import { track } from '@vercel/analytics';
+import { SecurityService } from '../services/securityService';
 
 interface AuthScreenProps {
   onOpen: (state: VaultState, blob: string, password: string, isNew?: boolean, isLegacy?: boolean) => void;
@@ -29,6 +30,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
   
   // Local Storage State
   const [localVaultFound, setLocalVaultFound] = useState(false);
+  const [integritySafe, setIntegritySafe] = useState(true);
 
   // Input Validation State
   const isSeed = /^[0-9a-fA-F]{64}$/i.test(blob.trim());
@@ -47,6 +49,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
       } else {
           setTab('create'); // Default to create if new
       }
+
+      // Check Integrity
+      const report = SecurityService.checkIntegrity();
+      setIntegritySafe(!report.compromised);
   }, []);
 
   const confirmClearLocalVault = () => {
@@ -244,23 +250,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
             <div className="w-full relative">
                 <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
                     
+                    {/* Integrity Banner */}
+                    {integritySafe && (
+                        <div className="bg-emerald-900/10 border-b border-emerald-500/10 py-1.5 flex justify-center items-center gap-2 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
+                            <ShieldCheck size={12} /> Execution Environment Verified
+                        </div>
+                    )}
+
                     <div className="flex border-b border-white/5 bg-black/20">
                         <button 
                             onClick={() => {setTab('open'); setError('');}}
                             className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${tab === 'open' ? 'text-white bg-white/5' : 'text-slate-500 hover:text-slate-300'}`}
                         >
-                            <LogIn size={16} /> Open Vault
+                            <LogIn size={16} /> Unlock Vault
                         </button>
                         <button 
                             onClick={() => {setTab('create'); setError('');}}
                             className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${tab === 'create' ? 'text-white bg-white/5' : 'text-slate-500 hover:text-slate-300'}`}
                         >
-                            <UserPlus size={16} /> New Vault
+                            <UserPlus size={16} /> Create New
                         </button>
                     </div>
 
                     <div className="p-8">
-                        <button onClick={() => setShowHelp(!showHelp)} className="absolute top-16 right-4 text-slate-600 hover:text-white transition-colors">
+                        <button onClick={() => setShowHelp(!showHelp)} className="absolute top-20 right-4 text-slate-600 hover:text-white transition-colors">
                             <HelpCircle size={18} />
                         </button>
 
@@ -290,7 +303,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
                                          </div>
                                     )}
                                     <h2 className="text-xl font-bold text-white">
-                                        {localVaultFound ? 'Welcome Back' : 'Restore Access'}
+                                        {localVaultFound ? 'Decrypt Vault' : 'Restore Vault'}
                                     </h2>
                                 </div>
 
@@ -302,7 +315,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
                                             </div>
                                             <p className="text-xs text-slate-400 leading-relaxed">
                                                 <span className="text-indigo-400 font-bold">A:</span> Drag & drop your <strong>Backup File</strong> to restore your vault.<br/>
-                                                <span className="text-emerald-400 font-bold">B:</span> Paste your <strong>Master Seed</strong> to recover your identity.
+                                                <span className="text-emerald-400 font-bold">B:</span> Paste your <strong>Master Seed</strong> to recover your vault.
                                             </p>
                                         </div>
 
@@ -357,7 +370,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
                                                 onChange={e => setPassword(e.target.value)}
                                                 className="pr-10"
                                                 autoFocus={localVaultFound}
-                                                placeholder={localVaultFound ? "••••••••" : "Password for this identity"}
+                                                placeholder={localVaultFound ? "••••••••" : "Password for this vault"}
                                             />
                                             <button 
                                                 type="button"
@@ -399,7 +412,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
                                                 </button>
                                             )}
                                             <Button type="submit" className={`w-full h-12 text-lg shadow-lg ${isSeed ? 'shadow-emerald-500/20 bg-emerald-600 hover:bg-emerald-500' : 'shadow-indigo-500/20'}`} isLoading={loading}>
-                                                {isSeed ? 'Recover Identity' : 'Unlock Vault'}
+                                                {isSeed ? 'Recover Vault' : 'Unlock Vault'}
                                             </Button>
                                         </div>
                                     )}
