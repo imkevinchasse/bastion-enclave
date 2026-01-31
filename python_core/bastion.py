@@ -2,7 +2,7 @@
 #!/usr/bin/env python3
 """
 BASTION SECURE ENCLAVE // PYTHON RUNTIME
-v2.8.0
+v3.5.0
 
 [MISSION]
 "If the web disappears, Bastion still works."

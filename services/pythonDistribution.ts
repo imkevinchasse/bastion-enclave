@@ -3,7 +3,7 @@ export const PYTHON_APP_SOURCE = {
   "bastion.py": `#!/usr/bin/env python3
 \"\"\"
 BASTION SECURE ENCLAVE // PYTHON RUNTIME
-v3.0.0
+v3.5.0
 
 [MISSION]
 "If the web disappears, Bastion still works."
@@ -45,8 +45,100 @@ if __name__ == "__main__":
   "requirements.txt": `cryptography>=41.0.0
 requests>=2.31.0
 pyperclip>=1.8.2
-rich>=13.0.0`,
+rich>=13.0.0
+argon2-cffi>=23.1.0`,
   "src/__init__.py": `# Bastion Source Package`,
+  "src/serializer.py": `
+import json
+import struct
+from typing import Dict, List, Any
+
+class BastionSerializer:
+    """
+    Enforces 'Deterministic-but-Unique' output signatures.
+    """
+
+    ORDER_ROOT = [
+        "version", "entropy", "flags", "lastModified", 
+        "locker", "contacts", "notes", "configs"
+    ]
+
+    ORDER_CONFIG = [
+        "id", "name", "username", "category", "version", 
+        "length", "useSymbols", "customPassword", "breachStats", "compromised",
+        "createdAt", "updatedAt", "usageCount", "sortOrder"
+    ]
+
+    ORDER_NOTE = ["id", "updatedAt", "title", "content"]
+    ORDER_CONTACT = ["id", "updatedAt", "name", "email", "phone", "address", "notes"]
+    ORDER_RESONANCE = ["id", "timestamp", "label", "size", "mime", "key", "hash", "embedded"]
+
+    @staticmethod
+    def _reorder(obj: Dict[str, Any], order: List[str]) -> Dict[str, Any]:
+        if not isinstance(obj, dict): return obj
+        out = {}
+        for key in order:
+            if key in obj: out[key] = obj[key]
+        remaining = sorted([k for k in obj.keys() if k not in order])
+        for key in remaining: out[key] = obj[key]
+        return out
+
+    @classmethod
+    def serialize(cls, state: Any) -> str:
+        if hasattr(state, '__dict__'): state_dict = state.__dict__
+        elif isinstance(state, dict): state_dict = state
+        else: raise ValueError("State must be a dict or dataclass")
+
+        ordered = cls._reorder(state_dict, cls.ORDER_ROOT)
+
+        if 'configs' in ordered and isinstance(ordered['configs'], list):
+            ordered['configs'] = [cls._reorder(c, cls.ORDER_CONFIG) for c in ordered['configs']]
+        if 'notes' in ordered and isinstance(ordered['notes'], list):
+            ordered['notes'] = [cls._reorder(n, cls.ORDER_NOTE) for n in ordered['notes']]
+        if 'contacts' in ordered and isinstance(ordered['contacts'], list):
+            ordered['contacts'] = [cls._reorder(c, cls.ORDER_CONTACT) for c in ordered['contacts']]
+        if 'locker' in ordered and isinstance(ordered['locker'], list):
+            ordered['locker'] = [cls._reorder(l, cls.ORDER_RESONANCE) for l in ordered['locker']]
+
+        return json.dumps(ordered, separators=(',', ':'))
+
+    @staticmethod
+    def frame(json_str: str) -> bytes:
+        """
+        Wraps JSON with 4-byte Length Header + 0x00 Padding to 64-byte alignment.
+        """
+        data_bytes = json_str.encode('utf-8')
+        length = len(data_bytes)
+        
+        # 1. Header
+        header = struct.pack('<I', length)
+        
+        # 2. Padding Calc
+        total_raw = 4 + length
+        remainder = total_raw % 64
+        padding_needed = 0 if remainder == 0 else 64 - remainder
+        padding = b'\\x00' * padding_needed
+        
+        return header + data_bytes + padding
+
+    @staticmethod
+    def deframe(data: bytes) -> str:
+        if len(data) < 4: return data.decode('utf-8')
+
+        try:
+            # Read Length (Little Endian)
+            claimed_len = struct.unpack('<I', data[:4])[0]
+            
+            # Check if claimed length fits in buffer (allowing for padding)
+            if claimed_len <= len(data) - 4:
+                # Valid Bastion Frame: Slice exact payload
+                return data[4:4+claimed_len].decode('utf-8')
+        except:
+            pass
+            
+        # Fallback
+        return data.decode('utf-8')
+`,
   "src/core.py": `import os
 import json
 import base64
@@ -61,6 +153,8 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 import argon2
 
+from .serializer import BastionSerializer
+
 # --- CONSTANTS ---
 # V3 (Argon2id) Parameters
 ARGON_TIME_COST = 3
@@ -74,9 +168,10 @@ LEGACY_ITERATIONS_V2 = 210_000
 LEGACY_ITERATIONS_V1 = 100_000
 
 # Headers
-HEADER_V3 = b"\\x42\\x53\\x54\\x4E\\x03" # BSTN + 0x03
-HEADER_V2 = b"\\x42\\x53\\x54\\x4E\\x02" # BSTN + 0x02 (Supported for read)
-MAGIC_HEADER_STR = "BASTION_V3::" # Wrapper for text file storage
+HEADER_V3_5 = b"\\x42\\x53\\x54\\x4E\\x04" # BSTN + 0x04 (V3.5)
+HEADER_V3 = b"\\x42\\x53\\x54\\x4E\\x03" # BSTN + 0x03 (V3)
+HEADER_V2 = b"\\x42\\x53\\x54\\x4E\\x02" # BSTN + 0x02
+MAGIC_HEADER_STR = "BASTION_V3::"
 
 # --- DATA MODELS ---
 
@@ -122,80 +217,102 @@ class BastionCrypto:
         return kdf.derive(password.encode('utf-8'))
 
     @staticmethod
-    def encrypt_blob(data_json: str, password: str) -> str:
-        # V3 Encryption: Header + Salt + IV + Cipher
+    def encrypt_blob(vault_state: VaultState, password: str) -> str:
+        # 1. Canonical Serialization
+        canonical_json = BastionSerializer.serialize(vault_state)
+        
+        # 2. Framing (Length Prefixing + Padding)
+        framed_bytes = BastionSerializer.frame(canonical_json)
+
+        # 3. Encryption (V3.5: Argon2id + AES-GCM + Framing)
         salt = secrets.token_bytes(16)
         iv = secrets.token_bytes(12)
         
         key = BastionCrypto.derive_key_argon2(password, salt)
         aesgcm = AESGCM(key)
         
-        plaintext = data_json.encode('utf-8')
-        ciphertext = aesgcm.encrypt(iv, plaintext, None)
+        ciphertext = aesgcm.encrypt(iv, framed_bytes, None)
         
-        blob = HEADER_V3 + salt + iv + ciphertext
+        # Structure: Header + Salt + IV + Cipher
+        blob = HEADER_V3_5 + salt + iv + ciphertext
         return base64.b64encode(blob).decode('utf-8')
 
     @staticmethod
     def decrypt_blob(blob_b64: str, password: str) -> Tuple[Optional[str], bool]:
         \"\"\"
         Attempts decryption. Returns (json_str, is_legacy_format).
+        Handles deframing automatically.
         \"\"\"
         try:
             data = base64.b64decode(blob_b64)
+            decrypted_bytes = None
+            is_legacy = False
+            version = 1
             
             # Check for Protocol Headers
             if len(data) > 5 and data[0:4] == b"BSTN":
-                version = data[4]
-                
-                if version == 3:
-                    # V3: Argon2id
-                    salt = data[5:21]
-                    iv = data[21:33]
-                    ciphertext = data[33:]
-                    try:
-                        key = BastionCrypto.derive_key_argon2(password, salt)
-                        aesgcm = AESGCM(key)
-                        pt = aesgcm.decrypt(iv, ciphertext, None)
-                        return pt.decode('utf-8'), False
-                    except Exception:
-                        return None, False
+                v_byte = data[4]
+                if v_byte == 4: version = 4 # V3.5
+                elif v_byte == 3: version = 3 # V3.0
+                elif v_byte == 2: version = 2 # V2.0
+            
+            if version >= 3:
+                # V3/V3.5: Argon2id
+                salt = data[5:21]
+                iv = data[21:33]
+                ciphertext = data[33:]
+                try:
+                    key = BastionCrypto.derive_key_argon2(password, salt)
+                    aesgcm = AESGCM(key)
+                    decrypted_bytes = aesgcm.decrypt(iv, ciphertext, None)
+                    if version == 3: is_legacy = True # Needs upgrade to V3.5 framing
+                except Exception:
+                    return None, False
 
-                elif version == 2:
-                    # V2: PBKDF2
-                    salt = data[5:21]
-                    iv = data[21:33]
-                    ciphertext = data[33:]
-                    try:
-                        key = BastionCrypto.derive_key_pbkdf2(password, salt, True, LEGACY_ITERATIONS_V2)
-                        aesgcm = AESGCM(key)
-                        pt = aesgcm.decrypt(iv, ciphertext, None)
-                        return pt.decode('utf-8'), True # Mark for upgrade
-                    except Exception:
-                        return None, False
+            elif version == 2:
+                # V2: PBKDF2
+                salt = data[5:21]
+                iv = data[21:33]
+                ciphertext = data[33:]
+                try:
+                    key = BastionCrypto.derive_key_pbkdf2(password, salt, True, LEGACY_ITERATIONS_V2)
+                    aesgcm = AESGCM(key)
+                    decrypted_bytes = aesgcm.decrypt(iv, ciphertext, None)
+                    is_legacy = True
+                except Exception:
+                    return None, False
             
             # --- LEGACY FALLBACKS (No Header) ---
-            if len(data) < 28: return None, False
-            salt = data[0:16]
-            iv = data[16:28]
-            ciphertext = data[28:]
+            if decrypted_bytes is None:
+                if len(data) < 28: return None, False
+                salt = data[0:16]
+                iv = data[16:28]
+                ciphertext = data[28:]
 
-            # Try V1 (PBKDF2 with Domain Sep)
-            try:
-                key = BastionCrypto.derive_key_pbkdf2(password, salt, True, LEGACY_ITERATIONS_V2)
-                aesgcm = AESGCM(key)
-                pt = aesgcm.decrypt(iv, ciphertext, None)
-                return pt.decode('utf-8'), True
-            except: pass
+                # Try V1 (PBKDF2 with Domain Sep)
+                try:
+                    key = BastionCrypto.derive_key_pbkdf2(password, salt, True, LEGACY_ITERATIONS_V2)
+                    aesgcm = AESGCM(key)
+                    decrypted_bytes = aesgcm.decrypt(iv, ciphertext, None)
+                    is_legacy = True
+                except: 
+                    # Try V0 (Ancient)
+                    try:
+                        key = BastionCrypto.derive_key_pbkdf2(password, salt, False, LEGACY_ITERATIONS_V1)
+                        aesgcm = AESGCM(key)
+                        decrypted_bytes = aesgcm.decrypt(iv, ciphertext, None)
+                        is_legacy = True
+                    except:
+                        return None, False
 
-            # Try V0 (Ancient, no domain sep)
-            try:
-                key = BastionCrypto.derive_key_pbkdf2(password, salt, False, LEGACY_ITERATIONS_V1)
-                aesgcm = AESGCM(key)
-                pt = aesgcm.decrypt(iv, ciphertext, None)
-                return pt.decode('utf-8'), True
-            except: pass
-
+            # 4. Deframe based on version
+            if decrypted_bytes:
+                if version >= 4:
+                    json_str = BastionSerializer.deframe(decrypted_bytes)
+                else:
+                    json_str = decrypted_bytes.decode('utf-8')
+                return json_str, is_legacy
+            
             return None, False
 
         except Exception as e:
@@ -237,14 +354,12 @@ class VaultManager:
 
     def save_file(self):
         if self.active_state and self.active_password:
-            # Update active blob using V3 (Argon2id)
+            # Update active blob using V3.5
             self.active_state.lastModified = int(time.time() * 1000)
             self.active_state.version += 1
             
-            new_blob = BastionCrypto.encrypt_blob(
-                json.dumps(asdict(self.active_state)), 
-                self.active_password
-            )
+            # Encrypt logic now handles Serialization & Framing via BastionCrypto
+            new_blob = BastionCrypto.encrypt_blob(self.active_state, self.active_password)
             
             if self.active_blob_index >= 0:
                 self.blobs[self.active_blob_index] = new_blob
@@ -288,7 +403,7 @@ class VaultManager:
                 
                 if is_legacy:
                     print("\\n[SYSTEM] Legacy vault format detected.")
-                    print("[SYSTEM] Upgrading to Sovereign-V3 Protocol (Argon2id)...")
+                    print("[SYSTEM] Upgrading to Sovereign-V3.5 Protocol (Canonical Framing)...")
                     try:
                         self.save_file()
                         print("[SYSTEM] Upgrade complete.\\n")
@@ -311,7 +426,7 @@ class VaultManager:
     def export_decrypted_json(self) -> str:
         if not self.active_state:
             raise PermissionError("Vault locked")
-        return json.dumps(asdict(self.active_state), indent=2)`,
+        return BastionSerializer.serialize(self.active_state)`,
   "src/features.py": `import os
 import secrets
 import hashlib
@@ -582,7 +697,7 @@ class BastionShell:
         self.clear()
         self.console.print(Panel.fit(
             "[bold cyan]BASTION SECURE ENCLAVE[/bold cyan]\\n"
-            "[dim]Python Runtime v3.0.0 | Production Preview[/dim]",
+            "[dim]Python Runtime v3.5.0 | Sovereign Protocol[/dim]",
             border_style="indigo"
         ))
 
@@ -698,7 +813,7 @@ class BastionShell:
         while True:
             self.header()
             self.console.print("[bold]Credentials[/bold]")
-            self.console.print("1. Search / View")
+            self.console.print("1. Search / View (Support !weak, !old)")
             self.console.print("2. Add New")
             self.console.print("0. Back")
             
@@ -791,22 +906,41 @@ class BastionShell:
     # --- ACTIONS: LOGINS ---
 
     def action_config_search(self):
-        q = Prompt.ask("Search query (Enter for all)").lower()
+        q = Prompt.ask("Search query (Enter for all)").lower().strip()
         configs = self.manager.active_state.configs
-        hits = [c for c in configs if q in c['name'].lower() or q in c['username'].lower()]
+        hits = []
+
+        # IMPLEMENT BEHAVIORAL FINGERPRINT: CLI GRAMMAR
+        is_command = q.startswith("!")
+        
+        if is_command:
+            cmd = q[1:]
+            if cmd.startswith("weak"):
+                hits = [c for c in configs if c.get('length', 16) < 12 and not c.get('customPassword')]
+            elif cmd.startswith("old"):
+                # > 6 Months (approx)
+                cutoff = int(time.time() * 1000) - (1000 * 60 * 60 * 24 * 180)
+                hits = [c for c in configs if c.get('updatedAt', 0) < cutoff]
+            elif cmd.startswith("compromised"):
+                hits = [c for c in configs if c.get('breachStats', {}).get('status') == 'compromised']
+        else:
+            hits = [c for c in configs if q in c['name'].lower() or q in c['username'].lower()]
         
         if not hits:
             self.console.print("[red]No matches.[/red]")
             time.sleep(1)
             return
 
-        table = Table(title="Credentials")
+        table = Table(title=f"Credentials ({len(hits)} matches)")
         table.add_column("#", style="cyan")
         table.add_column("Service", style="bold white")
         table.add_column("Username", style="white")
+        table.add_column("Length", style="dim")
         
         for i, c in enumerate(hits):
-            table.add_row(str(i+1), c['name'], c['username'])
+            length_val = c.get('length', 16)
+            if c.get('customPassword'): length_val = "CUSTOM"
+            table.add_row(str(i+1), c['name'], c['username'], str(length_val))
         self.console.print(table)
         
         self.console.print("\\n[bold]V[/bold]iew/Decrypt # | [bold]E[/bold]dit # | [bold]D[/bold]elete # | [bold]B[/bold]ack")
@@ -830,6 +964,9 @@ class BastionShell:
                 )
             self.console.print(Panel(f"[bold green]{pwd}[/bold green]", title="Password"))
             self.copy_to_clipboard(pwd)
+            # Update usage count
+            target['usageCount'] = target.get('usageCount', 0) + 1
+            self.manager.save_file()
             Prompt.ask("Press Enter to continue...")
 
         elif choice.startswith('e'):
@@ -857,6 +994,9 @@ class BastionShell:
             "length": 16,
             "useSymbols": True,
             "updatedAt": int(time.time()*1000),
+            "createdAt": int(time.time()*1000),
+            "usageCount": 0,
+            "category": "login",
             "customPassword": custom_pwd
         }
         

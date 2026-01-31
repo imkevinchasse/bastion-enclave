@@ -48,7 +48,7 @@ class BastionShell:
         self.clear()
         self.console.print(Panel.fit(
             "[bold cyan]BASTION SECURE ENCLAVE[/bold cyan]\n"
-            "[dim]Python Runtime v3.0.0 | Sovereign Protocol[/dim]",
+            "[dim]Python Runtime v3.5.0 | Sovereign Protocol[/dim]",
             border_style="indigo"
         ))
 
