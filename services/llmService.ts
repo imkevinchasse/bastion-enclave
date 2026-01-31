@@ -124,7 +124,9 @@ export const initLLM = async (onProgress: (text: string) => void): Promise<void>
         // 1. Dynamic Imports with @vite-ignore
         // This ensures Vite does NOT try to bundle these (which fails on 'buffer'/'long').
         // The browser will fetch them directly from the CDN.
+        // @ts-ignore
         const transformersMod = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2");
+        // @ts-ignore
         const webLlmMod = await import(/* @vite-ignore */ "https://esm.sh/@mlc-ai/web-llm@0.2.72");
         
         const { pipeline, env } = transformersMod;
