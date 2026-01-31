@@ -69,8 +69,8 @@ export class ChaosLock {
     return out;
   }
 
-  static buf2hex(buf: ArrayBuffer): string {
-    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  static buf2hex(buf: ArrayBuffer | Uint8Array): string {
+    return [...new Uint8Array(buf as any)].map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
   static hex2buf(hex: string): Uint8Array {
@@ -306,13 +306,13 @@ export class SecretSharer {
         const encryptedSecret = await crypto.subtle.encrypt(
             { name: "AES-GCM", iv },
             key,
-            new TextEncoder().encode(secretStr)
+            new TextEncoder().encode(secretStr) as any // Cast for BufferSource compatibility
         );
         
         const payload = new Uint8Array(12 + encryptedSecret.byteLength);
         payload.set(iv, 0);
         payload.set(new Uint8Array(encryptedSecret), 12);
-        const payloadHex = ChaosLock.buf2hex(payload);
+        const payloadHex = ChaosLock.buf2hex(payload); // Updated to accept Uint8Array or casted
 
         let secretInt = 0n;
         for (const b of sessionKeyBytes) {
@@ -398,7 +398,7 @@ export class SecretSharer {
             const decrypted = await crypto.subtle.decrypt(
                 { name: "AES-GCM", iv },
                 key,
-                cipher
+                cipher as any // Cast to any to satisfy BufferSource type
             );
             
             sessionKeyBytes.fill(0);
