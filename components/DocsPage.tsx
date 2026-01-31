@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { TopNav } from './TopNav';
 import { PublicPage } from '../types';
-import { Shield, Lock, FileLock2, BrainCircuit, CloudOff, FileKey, Fingerprint, RefreshCw, BookOpen, Terminal, ChevronRight, Zap, Code2, AlertTriangle, ShieldAlert, Wifi, Server, CheckCircle, Copy, Download } from 'lucide-react';
+import { Shield, Lock, FileLock2, BrainCircuit, CloudOff, FileKey, Fingerprint, RefreshCw, BookOpen, Terminal, ChevronRight, Zap, Code2, AlertTriangle, ShieldAlert, Wifi, Server, CheckCircle, Copy, Download, History, ShieldCheck, Binary, Cpu, Share2 } from 'lucide-react';
 import { zip, Zippable } from 'fflate';
 import { PYTHON_APP_SOURCE } from '../services/pythonDistribution';
 import { Button } from './Button';
@@ -11,7 +11,7 @@ interface DocsPageProps {
   onNavigate: (page: PublicPage) => void;
 }
 
-type DocSection = 'intro' | 'start' | 'chaos' | 'locker' | 'ai' | 'python' | 'breach' | 'recovery';
+type DocSection = 'intro' | 'start' | 'chaos' | 'locker' | 'ai' | 'python' | 'breach' | 'recovery' | 'changelog';
 
 export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate }) => {
   const [activeSection, setActiveSection] = useState<DocSection>('intro');
@@ -42,11 +42,12 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate }) => {
                 <div className="space-y-1">
                     <div className="text-xs font-bold text-slate-500 uppercase tracking-widest px-3 mb-2">Developer</div>
                     <NavButton active={activeSection === 'python'} onClick={() => setActiveSection('python')} icon={<Code2 size={16}/>} label="Python Runtime" />
+                    <NavButton active={activeSection === 'changelog'} onClick={() => setActiveSection('changelog')} icon={<History size={16}/>} label="Changelog" />
                 </div>
 
                 <div className="p-4 bg-indigo-900/10 rounded-xl border border-indigo-500/20 mt-8">
                     <h4 className="font-bold text-indigo-400 text-sm mb-2">Status: Operational</h4>
-                    <p className="text-xs text-indigo-200/80">Version 2.8.2<br/>Protocol: V3 (Active)</p>
+                    <p className="text-xs text-indigo-200/80">Version 3.5.0<br/>Protocol: V3.5 (Active)</p>
                 </div>
             </aside>
 
@@ -62,14 +63,13 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate }) => {
                 {activeSection === 'ai' && <AiContent />}
                 {activeSection === 'python' && <PythonContent />}
                 {activeSection === 'breach' && <BreachContent />}
+                {activeSection === 'changelog' && <ChangelogContent />}
                 
             </main>
         </div>
     </div>
   );
 };
-
-// --- CONTENT VIEWS ---
 
 const IntroContent = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
@@ -272,7 +272,7 @@ const PythonContent = () => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = "bastion-python-runtime-v2.8.zip";
+            a.download = "bastion-python-runtime-v3.0.zip";
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -330,63 +330,282 @@ const PythonContent = () => {
     );
 };
 
-// --- SUB COMPONENTS ---
+const ChangelogContent = () => (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+        <Header icon={<History size={32} className="text-slate-400"/>} title="Protocol Changelog" />
+        
+        <div className="space-y-12">
+            {/* V3.5 */}
+            <div className="relative border-l-2 border-indigo-500 pl-6 pb-2">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-500 border-4 border-slate-950"></div>
+                <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-3">
+                    Bastion Protocol V3.5 <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30">STABLE</span>
+                </h3>
+                <div className="text-xs text-slate-500 font-mono mb-4">Epoch: 2026-01-30 • Scope: Serialization & Format Discipline</div>
+
+                <div className="space-y-6 text-sm text-slate-400">
+                    
+                    {/* Header Stats */}
+                    <div className="flex gap-4 text-xs font-mono border-b border-white/5 pb-4 mb-4">
+                        <span className="text-emerald-400">STATUS: STABLE</span>
+                        <span className="text-slate-500">|</span>
+                        <span className="text-indigo-400">SCOPE: SERIALIZATION</span>
+                        <span className="text-slate-500">|</span>
+                        <span className="text-slate-400">CRYPTO: UNCHANGED</span>
+                    </div>
+
+                    {/* Feature 1 */}
+                    <div className="space-y-2">
+                        <h4 className="text-white font-bold flex items-center gap-2"><Binary size={14} className="text-blue-400"/> Canonical Serialization (New)</h4>
+                        <ul className="list-disc list-outside ml-4 space-y-1 text-slate-400 marker:text-slate-600">
+                            <li>Vault plaintext is now serialized using a strict, deterministic canonical format prior to encryption.</li>
+                            <li>Field ordering is fixed and versioned.</li>
+                            <li>Required metadata is always present, even when empty.</li>
+                            <li>Serialization output is byte-for-byte reproducible.</li>
+                        </ul>
+                        <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded text-xs">
+                            <strong className="text-blue-300 block mb-1">Impact:</strong>
+                            This eliminates ambiguity, prevents silent incompatibilities, and guarantees consistent vault structure across platforms and releases.
+                        </div>
+                    </div>
+
+                    {/* Feature 2 */}
+                    <div className="space-y-2">
+                        <h4 className="text-white font-bold flex items-center gap-2"><ShieldCheck size={14} className="text-emerald-400"/> Deterministic Payload Padding (New)</h4>
+                        <ul className="list-disc list-outside ml-4 space-y-1 text-slate-400 marker:text-slate-600">
+                            <li>All encrypted vault payloads are now padded deterministically to 64-byte alignment.</li>
+                            <li>Padding is non-cryptographic and does not affect security assumptions.</li>
+                            <li>Padding size is derived from vault structure and protocol version.</li>
+                            <li>Padding is ignored on read and enforced on write.</li>
+                        </ul>
+                        <div className="mt-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs">
+                            <strong className="text-emerald-300 block mb-1">Impact:</strong>
+                            This removes plaintext length signaling, reduces traffic analysis surface area, and produces a stable, recognizable vault size profile.
+                        </div>
+                    </div>
+
+                    {/* Feature 3 */}
+                    <div className="space-y-2">
+                        <h4 className="text-white font-bold flex items-center gap-2"><AlertTriangle size={14} className="text-amber-400"/> Canonical Compatibility Enforcement (New)</h4>
+                        <ul className="list-disc list-outside ml-4 space-y-1 text-slate-400 marker:text-slate-600">
+                            <li>Bastion clients now enforce strict adherence to the canonical format.</li>
+                            <li>Cryptographically valid data that does not conform to the Bastion serialization contract is rejected.</li>
+                            <li>This applies regardless of encryption correctness.</li>
+                        </ul>
+                        <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded text-xs">
+                            <strong className="text-amber-300 block mb-1">Impact:</strong>
+                            Users are protected from unofficial or incompatible implementations that may encrypt correctly but serialize incorrectly, leading to silent data loss or long-term incompatibility.
+                        </div>
+                    </div>
+
+                    {/* Backward Comp */}
+                    <div className="space-y-2 pt-4 border-t border-white/5">
+                        <h4 className="text-white font-bold">Backward Compatibility</h4>
+                        <ul className="list-disc list-outside ml-4 space-y-1 text-slate-400 marker:text-slate-600">
+                            <li>Vaults created under Protocol V1–V3 are fully supported.</li>
+                            <li>Legacy vaults are upgraded automatically on open.</li>
+                            <li>Users are notified of the upgrade and its implications.</li>
+                        </ul>
+                    </div>
+
+                    {/* Invariants */}
+                    <div className="space-y-2">
+                        <h4 className="text-white font-bold">What Did Not Change</h4>
+                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono text-slate-500">
+                            <li className="flex items-center gap-2"><CheckCircle size={12} className="text-slate-600"/> Key derivation (Argon2id)</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={12} className="text-slate-600"/> Encryption (AES-256-GCM)</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={12} className="text-slate-600"/> Authentication (HMAC-SHA512)</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={12} className="text-slate-600"/> Entropy generation</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={12} className="text-slate-600"/> Trust model (Client-side)</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={12} className="text-slate-600"/> Zero knowledge</li>
+                        </ul>
+                        <p className="text-xs text-slate-600 italic mt-2">No cryptographic primitives were modified in this release.</p>
+                    </div>
+
+                </div>
+            </div>
+
+            {/* V3.0 */}
+            <div className="relative border-l-2 border-slate-600 pl-6 pb-2">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-600 border-4 border-slate-950"></div>
+                <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-3">
+                    Bastion Protocol V3.0.0 <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-600">SOVEREIGN EPOCH</span>
+                </h3>
+                <div className="text-xs text-slate-500 font-mono mb-4">Header: 0x03 • Epoch: 2026-01-01 • Status: Stable</div>
+
+                <div className="space-y-6 text-sm text-slate-400">
+                    
+                    {/* Feature 1 */}
+                    <div className="space-y-2">
+                        <h4 className="text-white font-bold flex items-center gap-2"><Cpu size={14} className="text-emerald-400"/> Memory-Hard Key Derivation (Upgraded)</h4>
+                        <p className="text-slate-400">Vault key derivation has been upgraded from PBKDF2 to Argon2id, configured for interactive but attack-resistant use.</p>
+                        <ul className="list-disc list-outside ml-4 space-y-1 text-slate-500 marker:text-slate-600 font-mono text-xs">
+                            <li>Memory cost: 64 MB</li>
+                            <li>Time cost: 3 passes</li>
+                            <li>Parallelism: 1</li>
+                            <li>Domain separation enforced</li>
+                        </ul>
+                        <div className="mt-2 p-3 bg-emerald-500/5 border border-emerald-500/10 rounded text-xs">
+                            <strong className="text-emerald-400/80 block mb-1">Impact:</strong>
+                            This change significantly raises the cost of offline password-guessing attacks, particularly on GPUs and ASICs, while remaining practical on consumer hardware.
+                        </div>
+                    </div>
+
+                    {/* Feature 2 */}
+                    <div className="space-y-2">
+                        <h4 className="text-white font-bold flex items-center gap-2"><Share2 size={14} className="text-indigo-400"/> Prime-Field Secret Sharding (Upgraded)</h4>
+                        <p className="text-slate-400">Secret sharing has been migrated from GF(2⁸) to a large prime field (P-256).</p>
+                        <ul className="list-disc list-outside ml-4 space-y-1 text-slate-400 marker:text-slate-600">
+                            <li>Supports secure splitting of secrets of arbitrary length</li>
+                            <li>Eliminates byte-field limitations and structural bias</li>
+                            <li>Preserves information-theoretic security guarantees</li>
+                        </ul>
+                        <div className="mt-2 p-3 bg-indigo-500/5 border border-indigo-500/10 rounded text-xs">
+                            <strong className="text-indigo-400/80 block mb-1">Impact:</strong>
+                            This enables robust, scalable secret splitting without weakening reconstruction guarantees or introducing field-size artifacts.
+                        </div>
+                    </div>
+
+                    {/* Feature 3 */}
+                    <div className="space-y-2">
+                        <h4 className="text-white font-bold flex items-center gap-2"><ShieldCheck size={14} className="text-amber-400"/> Cryptographic Discipline (Explicit)</h4>
+                        <p className="text-slate-400">All cryptographic primitives are now version-locked and treated as protocol constants.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono text-slate-500 mt-2">
+                            <div className="bg-slate-900/50 p-2 rounded border border-white/5">Encryption: AES-256-GCM</div>
+                            <div className="bg-slate-900/50 p-2 rounded border border-white/5">Auth: HMAC-SHA512</div>
+                            <div className="bg-slate-900/50 p-2 rounded border border-white/5">Entropy: Unbiased Rejection</div>
+                            <div className="bg-slate-900/50 p-2 rounded border border-white/5">Key Hierarchy: Split-Horizon</div>
+                        </div>
+                        <div className="mt-2 p-3 bg-amber-500/5 border border-amber-500/10 rounded text-xs">
+                            <strong className="text-amber-400/80 block mb-1">Impact:</strong>
+                            Protocol behavior is stable, auditable, and resistant to silent drift across implementations.
+                        </div>
+                    </div>
+
+                    {/* V3 Meta */}
+                    <div className="space-y-4 pt-4 border-t border-white/5">
+                        <div>
+                            <h4 className="text-white font-bold text-xs uppercase tracking-widest mb-2">What V3 Represents</h4>
+                            <p className="text-slate-400">
+                                Protocol V3 is not a feature release. It establishes cryptographic sovereignty: Memory hardness as a baseline, Large-field mathematics as default, and Deterministic, inspectable behavior across platforms.
+                                This is the foundation on which all future versions are built.
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <h4 className="text-white font-bold text-xs uppercase tracking-widest mb-2">Relationship to V3.5</h4>
+                            <ul className="list-disc list-outside ml-4 space-y-1 text-slate-500 marker:text-slate-600">
+                                <li>V3.0 defines the cryptographic core.</li>
+                                <li>V3.5 defines canonical serialization and behavioral identity.</li>
+                                <li>Cryptography remains unchanged between 3.0 and 3.5.</li>
+                            </ul>
+                        </div>
+
+                        <div className="p-4 bg-slate-800/50 border-l-2 border-white/20 italic text-slate-300">
+                            "Version 3 is where Bastion stopped being 'secure software' and became a security protocol."
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* V2.0 */}
+            <div className="relative border-l-2 border-slate-800 pl-6 pb-2 opacity-70 hover:opacity-100 transition-opacity">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-800 border-4 border-slate-950"></div>
+                <h3 className="text-xl font-bold text-slate-400 mb-1">Bastion Protocol V2.0.0</h3>
+                <div className="text-xs text-slate-600 font-mono mb-4">Header: 0x02 • Epoch: 2025-12-20 • Status: Legacy</div>
+                
+                <div className="space-y-6 text-sm text-slate-500">
+                    <div className="space-y-2">
+                        <h4 className="text-slate-300 font-bold flex items-center gap-2"><RefreshCw size={14}/> Chaos Engine V2 (Foundation)</h4>
+                        <p>
+                            The password generation core was rewritten to eliminate modulo bias.
+                            Introduced <strong>HMAC-SHA512</strong> flux generation and strict <strong>Rejection Sampling</strong>.
+                        </p>
+                        <div className="mt-2 p-3 bg-slate-800/50 border border-slate-700/50 rounded text-xs">
+                            <strong className="text-slate-400 block mb-1">Impact:</strong>
+                            Ensures mathematical uniformity in generated passwords, preventing statistical attacks against the character pool.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+// --- HELPER COMPONENTS ---
+
+const NavButton = ({active, onClick, icon, label}: {active: boolean, onClick: () => void, icon: React.ReactNode, label: string}) => (
+    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 w-full rounded-lg text-sm font-medium transition-all ${active ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'}`}>
+        {icon} {label}
+    </button>
+);
 
 const Header = ({ icon, title }: { icon: React.ReactNode, title: string }) => (
-    <div className="flex items-center gap-4 mb-6 border-b border-white/5 pb-6">
-        <div className="p-3 bg-slate-800 rounded-xl border border-white/10 shadow-lg">
+    <div className="flex items-center gap-4 border-b border-white/5 pb-6">
+        <div className="p-3 bg-slate-900 rounded-xl border border-white/10">
             {icon}
         </div>
         <h2 className="text-3xl font-bold text-white tracking-tight">{title}</h2>
     </div>
 );
 
-const NavButton = ({ active, onClick, icon, label }: any) => (
-    <button 
-        onClick={onClick}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-            active 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-        }`}
-    >
-        {icon}
-        {label}
-    </button>
-);
-
-const FeatureCard = ({ icon, title, desc }: any) => (
+const FeatureCard = ({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) => (
     <div className="bg-slate-900/50 p-6 rounded-xl border border-white/5">
         <div className="flex items-center gap-3 mb-3">
-            {icon}
-            <h4 className="font-bold text-white">{title}</h4>
+            <div className="p-2 bg-slate-800 rounded-lg">
+                {icon}
+            </div>
+            <h3 className="font-bold text-white">{title}</h3>
         </div>
-        <p className="text-sm text-slate-400">{desc}</p>
+        <p className="text-sm text-slate-400 leading-relaxed">{desc}</p>
     </div>
 );
 
-const Step = ({ number, title, children }: any) => (
+const Step = ({ number, title, children }: { number: number, title: string, children: React.ReactNode }) => (
     <div className="flex gap-4">
-        <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-white shrink-0">
-            {number}
+        <div className="flex flex-col items-center">
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-500/20">
+                {number}
+            </div>
+            <div className="w-px h-full bg-indigo-500/20 my-2"></div>
         </div>
-        <div>
-            <h4 className="font-bold text-white mb-1">{title}</h4>
-            <div className="text-sm text-slate-400 leading-relaxed">{children}</div>
+        <div className="pb-8">
+            <h4 className="text-white font-bold mb-2 text-lg">{title}</h4>
+            <div className="text-slate-400 text-sm leading-relaxed space-y-2">
+                {children}
+            </div>
         </div>
     </div>
 );
 
 const CopyButton = ({ text }: { text: string }) => {
     const [copied, setCopied] = useState(false);
+    
     const handleCopy = () => {
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
+
     return (
-        <button onClick={handleCopy} className="text-slate-500 hover:text-white transition-colors">
+        <button 
+            onClick={handleCopy}
+            className="p-1.5 text-slate-500 hover:text-white transition-colors ml-auto"
+            title="Copy to clipboard"
+        >
             {copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}
         </button>
+    );
+};
+
+const ChangeItem = ({ type, children }: { type: 'feature' | 'security' | 'fix', children: React.ReactNode }) => {
+    const color = type === 'feature' ? 'text-blue-400' : type === 'security' ? 'text-emerald-400' : 'text-slate-400';
+    const Icon = type === 'feature' ? Zap : type === 'security' ? ShieldCheck : Code2;
+    
+    return (
+        <li className="text-sm text-slate-400 leading-relaxed flex items-start gap-3">
+            <Icon size={16} className={`${color} mt-1 shrink-0`} />
+            <div>{children}</div>
+        </li>
     );
 }

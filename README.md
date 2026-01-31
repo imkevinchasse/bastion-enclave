@@ -1,9 +1,16 @@
 
 # Bastion Enclave :: Cryptographic Specification
 
-**Version:** 2.8.0  
+**Version:** 3.0.0  
 **Protocol:** Sovereign-V3  
-**Architecture:** Offline-First, Zero-Knowledge, Stateless
+**Architecture:** Offline-First, Zero-Knowledge, Stateless  
+**Philosophy:** [The Manifesto](SECURITY_MANIFESTO.md)
+
+---
+
+> **"We choose constraint over scale, conviction over convenience, and permanence over growth."**
+
+Bastion Enclave is an opinionated, offline-first password vault. It rejects the industry standard of "Cloud Sync" in favor of absolute client-side sovereignty. We do not ask for your trust; we prove our security through transparent architecture and immutable invariants.
 
 ---
 

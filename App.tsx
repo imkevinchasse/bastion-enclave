@@ -21,6 +21,7 @@ import { MigrationModal } from './components/MigrationModal';
 import { VaultConfig, AppTab, VaultState, PublicPage, VaultFlags, BreachStats } from './types';
 import { ChaosLock, ChaosEngine } from './services/cryptoService';
 import { BreachService } from './services/breachService';
+import { Guardrail } from './services/guardrail';
 import { Shield, LogOut, Terminal, Copy, Check, Layers, Cpu, Book, FileLock2, Users, Download, AlertTriangle, Blocks, Fingerprint, AlertOctagon, RefreshCw, FlaskConical } from 'lucide-react';
 import { Button } from './components/Button';
 import { BrandLogo } from './components/BrandLogo';
@@ -164,6 +165,14 @@ export default function App() {
       isNew: boolean = false,
       isLegacy: boolean = false
   ) => {
+    try {
+        // Enforce Schema Correctness immediately upon load
+        Guardrail.validateSchema(state);
+    } catch (e: any) {
+        alert("CRITICAL ERROR: Vault Integrity Check Failed.\n" + e.message);
+        return;
+    }
+
     // Migration: Migrate boolean 'compromised' to new 'breachStats' if missing
     state.configs = state.configs.map(c => {
         if (c.compromised && !c.breachStats) {
@@ -216,14 +225,30 @@ export default function App() {
   };
 
   const handleUpdateVault = async (newState: VaultState, silent: boolean = false) => {
+    // 1. Prepare next state (Optimistic)
     const nextVersion = (newState.version || 0) + 1;
-    newState.version = nextVersion;
-    newState.lastModified = Date.now();
+    const proposedState = {
+        ...newState,
+        version: nextVersion,
+        lastModified: Date.now()
+    };
 
-    const encrypted = await ChaosLock.pack(newState, sessionPassword);
+    // 2. Behavioral Fingerprint Guard
+    if (vaultState) {
+        try {
+            Guardrail.validateTransition(vaultState, proposedState);
+        } catch (e: any) {
+            console.error(e);
+            alert("Security Protocol Violation: " + e.message);
+            return; // Reject update
+        }
+    }
+
+    // 3. Commit
+    const encrypted = await ChaosLock.pack(proposedState, sessionPassword);
     
     if (!silent) {
-        setVaultState(newState);
+        setVaultState(proposedState);
         setVaultString(encrypted);
     }
     

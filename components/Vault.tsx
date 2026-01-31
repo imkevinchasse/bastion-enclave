@@ -8,7 +8,7 @@ import { VaultBreachScanner } from './VaultBreachScanner';
 import { ChaosEngine, ChaosLock, SecretSharer } from '../services/cryptoService';
 import { expandSearchQuery, isModelReady } from '../services/llmService';
 import { useDebounce } from '../hooks/useDebounce';
-import { Trash2, Copy, Eye, EyeOff, Search, Plus, RotateCw, Wallet, Globe, ArrowLeft, ShieldCheck, KeyRound, Share2, Layers, Check, AlertTriangle, X, ShieldAlert, Edit2, AlertOctagon, Clock, Sparkles, Loader2, ArrowUp, ArrowDown, ListFilter, Calendar, BarChart2, Hash } from 'lucide-react';
+import { Trash2, Copy, Eye, EyeOff, Search, Plus, RotateCw, Wallet, Globe, ArrowLeft, ShieldCheck, KeyRound, Share2, Layers, Check, AlertTriangle, X, ShieldAlert, Edit2, AlertOctagon, Clock, Sparkles, Loader2, ArrowUp, ArrowDown, ListFilter, Calendar, BarChart2, Hash, Terminal } from 'lucide-react';
 
 interface VaultProps {
   configs: VaultConfig[];
@@ -107,16 +107,52 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
       return c.breachStats && c.breachStats.lastChecked > latest ? c.breachStats.lastChecked : latest;
   }, 0);
 
-  const activeTerms = [debouncedSearch, ...smartTerms].filter(Boolean);
+  // --- BEHAVIORAL FINGERPRINT: CLI GRAMMAR ---
+  // Implements strict asymmetry. 
+  // !weak, !old, !compromised are "Commands"
+  // >user: maps to fields
+  const isCommand = debouncedSearch.startsWith('!');
+  const isFieldQuery = debouncedSearch.startsWith('>');
   
-  let processedConfigs = configs.filter(c => {
-      if (activeTerms.length === 0) return true;
-      return activeTerms.some(term => 
-          c.name.toLowerCase().includes(term.toLowerCase()) || 
-          c.username.toLowerCase().includes(term.toLowerCase())
-      );
-  });
+  let processedConfigs = configs;
 
+  if (isCommand) {
+      const cmd = debouncedSearch.substring(1).toLowerCase();
+      if (cmd.startsWith('weak')) {
+          processedConfigs = configs.filter(c => c.length < 12 && !c.customPassword); // Generator < 12
+      } else if (cmd.startsWith('compromised')) {
+          processedConfigs = configs.filter(c => c.breachStats?.status === 'compromised');
+      } else if (cmd.startsWith('old')) {
+          const SIX_MONTHS = 1000 * 60 * 60 * 24 * 30 * 6;
+          const now = Date.now();
+          processedConfigs = configs.filter(c => (now - (c.updatedAt || 0)) > SIX_MONTHS);
+      }
+  } else if (isFieldQuery) {
+      const parts = debouncedSearch.substring(1).split(':');
+      if (parts.length === 2) {
+          const field = parts[0].toLowerCase();
+          const val = parts[1].toLowerCase();
+          if (field === 'user' || field === 'u') {
+              processedConfigs = configs.filter(c => c.username.toLowerCase().includes(val));
+          } else if (field === 'service' || field === 's') {
+              processedConfigs = configs.filter(c => c.name.toLowerCase().includes(val));
+          } else if (field === 'v' || field === 'ver') {
+              processedConfigs = configs.filter(c => c.version.toString() === val);
+          }
+      }
+  } else {
+      // Normal Search
+      const activeTerms = [debouncedSearch, ...smartTerms].filter(Boolean);
+      processedConfigs = configs.filter(c => {
+          if (activeTerms.length === 0) return true;
+          return activeTerms.some(term => 
+              c.name.toLowerCase().includes(term.toLowerCase()) || 
+              c.username.toLowerCase().includes(term.toLowerCase())
+          );
+      });
+  }
+
+  // --- SORTING ---
   processedConfigs.sort((a, b) => {
       const aCompromised = a.breachStats?.status === 'compromised';
       const bCompromised = b.breachStats?.status === 'compromised';
@@ -384,7 +420,7 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
              <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
                 <Input 
                     icon={<Search size={16} />} 
-                    placeholder="Search logins..." 
+                    placeholder="Search or !cmd..." 
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setSmartTerms([]); }} 
                     className="md:w-48 min-w-[150px] h-10"
@@ -435,7 +471,21 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
              </div>
         </div>
 
-        {smartTerms.length > 0 && (
+        {/* --- CLI COMMAND INDICATOR --- */}
+        {(isCommand || isFieldQuery) && (
+            <div className="flex items-center gap-2 text-xs text-indigo-300 bg-indigo-500/10 px-3 py-2 rounded-lg border border-indigo-500/20 animate-in fade-in">
+                <Terminal size={12} className="text-indigo-400"/>
+                <span>
+                    {isCommand ? "Executing Command: " : "Field Filter: "} 
+                    <strong>{search}</strong>
+                </span>
+                <span className="ml-auto text-indigo-500/50 text-[10px] uppercase font-bold tracking-wider">
+                    {processedConfigs.length} Matches
+                </span>
+            </div>
+        )}
+
+        {smartTerms.length > 0 && !isCommand && !isFieldQuery && (
             <div className="flex items-center gap-2 text-xs text-indigo-300 bg-indigo-500/10 px-3 py-2 rounded-lg border border-indigo-500/20 animate-in fade-in">
                 <Sparkles size={12} className="text-indigo-400"/>
                 <span>Including related terms: <strong>{smartTerms.join(", ")}</strong></span>
@@ -455,7 +505,7 @@ export const Vault: React.FC<VaultProps> = ({ configs, masterSeed, onAddConfig, 
                     </p>
                 </div>
                 
-                {search && isModelReady() && !isExpanding && smartTerms.length === 0 && (
+                {search && isModelReady() && !isExpanding && smartTerms.length === 0 && !isCommand && !isFieldQuery && (
                     <div className="mt-2 animate-in fade-in">
                         <button 
                             onClick={handleSmartSearch}

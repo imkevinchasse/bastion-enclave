@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VaultState, VaultConfig } from '../types';
 import { ChaosLock, ChaosEngine } from '../services/cryptoService';
+import { ProvenanceService, ProvenanceReport } from '../services/provenance';
 import { Button } from './Button';
-import { Terminal, Key, Database, AlertTriangle, Bug, Code, RefreshCw, Trash2, ShieldAlert } from 'lucide-react';
+import { Terminal, Key, Database, AlertTriangle, Bug, Code, RefreshCw, Trash2, ShieldAlert, GitBranch, CheckCircle } from 'lucide-react';
 
 interface DeveloperConsoleProps {
   state: VaultState;
@@ -14,6 +15,15 @@ interface DeveloperConsoleProps {
 export const DeveloperConsole: React.FC<DeveloperConsoleProps> = ({ state, onUpdate, onForceExit }) => {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>(['> System initialized in DEBUG mode.']);
+  const [provenance, setProvenance] = useState<ProvenanceReport | null>(null);
+
+  useEffect(() => {
+      ProvenanceService.verify().then(report => {
+          setProvenance(report);
+          log(`Cryptographic Provenance Check: ${report.status}`);
+          if (!report.verified) log(`WARNING: Build signature verification failed. Issuer: ${report.issuer}`);
+      });
+  }, []);
 
   const log = (msg: string) => setLogs(prev => [`> ${msg}`, ...prev]);
 
@@ -22,9 +32,6 @@ export const DeveloperConsole: React.FC<DeveloperConsoleProps> = ({ state, onUpd
       log('Deriving Headless Access Key...');
       
       // RESERVED SYSTEM CONTEXT
-      // The "name" and "username" here are reserved for system use.
-      // This ensures the derived key is unique to this vault but deterministic.
-      // We construct a complete VaultConfig object for the system key.
       const systemConfig: VaultConfig = {
         id: 'system-root-key',
         name: "BASTION_SYSTEM_API_V1",
@@ -104,6 +111,29 @@ export const DeveloperConsole: React.FC<DeveloperConsoleProps> = ({ state, onUpd
             {/* Tools Panel */}
             <div className="space-y-6">
                 
+                {/* Provenance Card */}
+                <div className="bg-slate-900 border border-white/10 rounded-xl p-6">
+                    <h3 className="text-white font-bold flex items-center gap-2 mb-4">
+                        <GitBranch size={18} className="text-blue-400" /> Build Provenance
+                    </h3>
+                    {provenance ? (
+                        <div className={`p-4 rounded-lg border ${provenance.verified ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-amber-900/10 border-amber-500/30'}`}>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className={`text-xs font-bold uppercase ${provenance.verified ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                    {provenance.status}
+                                </span>
+                                {provenance.verified ? <CheckCircle size={16} className="text-emerald-500"/> : <ShieldAlert size={16} className="text-amber-500"/>}
+                            </div>
+                            <div className="font-mono text-xs text-slate-400 break-all">
+                                Issuer: {provenance.issuer}<br/>
+                                Epoch: {new Date(provenance.timestamp * 1000).toLocaleDateString()}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-xs text-slate-500">Verifying signature...</div>
+                    )}
+                </div>
+
                 {/* API Key Gen */}
                 <div className="bg-slate-900 border border-white/10 rounded-xl p-6">
                     <h3 className="text-white font-bold flex items-center gap-2 mb-4">

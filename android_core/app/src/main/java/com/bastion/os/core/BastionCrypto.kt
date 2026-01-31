@@ -2,6 +2,8 @@
 package com.bastion.os.core
 
 import android.util.Base64
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -14,8 +16,6 @@ import java.util.Arrays
 
 /**
  * BASTION CRYPTOGRAPHIC PROTOCOL (ANDROID)
- * 
- * Provides exact parity with the Web/TypeScript implementation.
  */
 object BastionCrypto {
     private const val PBKDF2_VAULT_ALGO = "PBKDF2WithHmacSHA256"
@@ -44,7 +44,6 @@ object BastionCrypto {
         System.arraycopy(domain, 0, finalSalt, 0, domain.size)
         System.arraycopy(salt, 0, finalSalt, domain.size, salt.size)
 
-        // Note: Android PBEKeySpec takes char[] for password, but salt as byte[]
         val spec = PBEKeySpec(password.toCharArray(), finalSalt, ITERATIONS, 256)
         val factory = SecretKeyFactory.getInstance(PBKDF2_VAULT_ALGO)
         val keyBytes = factory.generateSecret(spec).encoded
@@ -54,7 +53,24 @@ object BastionCrypto {
         val gcmSpec = GCMParameterSpec(TAG_LEN, iv)
         cipher.init(Cipher.DECRYPT_MODE, key, gcmSpec)
         
-        return String(cipher.doFinal(cipherText), StandardCharsets.UTF_8)
+        val plainBytes = cipher.doFinal(cipherText)
+        
+        // --- DEFRAME ---
+        // Protocol V3: [LENGTH (4 bytes LE)] + [JSON PAYLOAD] + [PADDING]
+        if (plainBytes.size < 4) return String(plainBytes, StandardCharsets.UTF_8)
+        
+        val bb = ByteBuffer.wrap(plainBytes)
+        bb.order(ByteOrder.LITTLE_ENDIAN)
+        // Read uint32 (treat as positive long)
+        val claimedLen = bb.int.toLong() and 0xFFFFFFFFL
+        
+        if (claimedLen <= plainBytes.size - 4) {
+            val actualBytes = plainBytes.copyOfRange(4, 4 + claimedLen.toInt())
+            return String(actualBytes, StandardCharsets.UTF_8)
+        }
+        
+        // Fallback for V1/V2 (No header)
+        return String(plainBytes, StandardCharsets.UTF_8)
     }
 
     fun packVault(jsonState: String, password: String): String {
@@ -77,7 +93,24 @@ object BastionCrypto {
         val cipher = Cipher.getInstance(AES_ALGO)
         val gcmSpec = GCMParameterSpec(TAG_LEN, iv)
         cipher.init(Cipher.ENCRYPT_MODE, key, gcmSpec)
-        val cipherText = cipher.doFinal(jsonState.toByteArray(StandardCharsets.UTF_8))
+        
+        // --- FRAME & PAD ---
+        val jsonBytes = jsonState.toByteArray(StandardCharsets.UTF_8)
+        val len = jsonBytes.size
+        
+        // Header
+        val header = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(len).array()
+        
+        // Padding (Align to 64 bytes)
+        val totalRaw = 4 + len
+        val remainder = totalRaw % 64
+        val paddingNeeded = if (remainder == 0) 0 else 64 - remainder
+        val padding = ByteArray(paddingNeeded) // 0x00 initialized
+        
+        // Combine
+        val plaintext = header + jsonBytes + padding
+        
+        val cipherText = cipher.doFinal(plaintext)
 
         val output = ByteArray(SALT_LEN + IV_LEN + cipherText.size)
         System.arraycopy(salt, 0, output, 0, SALT_LEN)
@@ -106,7 +139,7 @@ object BastionCrypto {
         val saltStr = "BASTION_GENERATOR_V2::${serviceName.lowercase()}::${username.lowercase()}::v$version"
         val saltBytes = saltStr.toByteArray(StandardCharsets.UTF_8)
 
-        val dkLen = length * 32 // Surplus bits for rejection
+        val dkLen = length * 32 // Surplus for rejection
         val spec = PBEKeySpec(masterEntropy.toCharArray(), saltBytes, ITERATIONS, dkLen)
         val factory = SecretKeyFactory.getInstance(PBKDF2_CHAOS_ALGO)
         val fluxBytes = factory.generateSecret(spec).encoded

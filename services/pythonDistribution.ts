@@ -3,7 +3,7 @@ export const PYTHON_APP_SOURCE = {
   "bastion.py": `#!/usr/bin/env python3
 \"\"\"
 BASTION SECURE ENCLAVE // PYTHON RUNTIME
-v2.8.0
+v3.0.0
 
 [MISSION]
 "If the web disappears, Bastion still works."
@@ -582,7 +582,7 @@ class BastionShell:
         self.clear()
         self.console.print(Panel.fit(
             "[bold cyan]BASTION SECURE ENCLAVE[/bold cyan]\\n"
-            "[dim]Python Runtime v2.8.0 | Production Preview[/dim]",
+            "[dim]Python Runtime v3.0.0 | Production Preview[/dim]",
             border_style="indigo"
         ))
 

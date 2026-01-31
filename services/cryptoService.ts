@@ -1,13 +1,14 @@
 
 import { VaultState, Resonance, VaultConfig } from "../types";
 import { argon2id } from 'hash-wasm';
+import { BastionSerializer } from "./serializer";
 
 // PBKDF2 Constants (Legacy Support)
 const PBKDF2_V2_ITERATIONS = 210_000;
 const PBKDF2_V1_ITERATIONS = 100_000;
 const PBKDF2_DIGEST = "SHA-512"; // Used for Chaos Generator (Flux)
 
-// Argon2id Constants (Current V3 Standard)
+// Argon2id Constants (Current Standard)
 const ARGON_MEM_KB = 65536; // 64 MB
 const ARGON_ITERATIONS = 3;
 const ARGON_PARALLELISM = 1;
@@ -17,7 +18,8 @@ const MAGIC_BYTES = new Uint8Array([0x42, 0x41, 0x53, 0x54, 0x49, 0x4f, 0x4e, 0x
 
 // Protocol Headers
 const HEADER_V2 = new Uint8Array([0x42, 0x53, 0x54, 0x4E, 0x02]); // "BSTN" + 0x02 (PBKDF2)
-const HEADER_V3 = new Uint8Array([0x42, 0x53, 0x54, 0x4E, 0x03]); // "BSTN" + 0x03 (Argon2id)
+const HEADER_V3 = new Uint8Array([0x42, 0x53, 0x54, 0x4E, 0x03]); // "BSTN" + 0x03 (Argon2id Raw)
+const HEADER_V3_5 = new Uint8Array([0x42, 0x53, 0x54, 0x4E, 0x04]); // "BSTN" + 0x04 (Argon2id + Framed/Padded)
 
 const GLYPHS = {
   ALPHA: "abcdefghijklmnopqrstuvwxyz",
@@ -102,7 +104,7 @@ export class ChaosLock {
   }
 
   /**
-   * V3: Argon2id Key Derivation
+   * V3/V3.5: Argon2id Key Derivation
    * Memory-Hard, GPU Resistant.
    */
   private static async deriveKeyArgon2id(password: string, salt: Uint8Array): Promise<CryptoKey> {
@@ -163,7 +165,7 @@ export class ChaosLock {
     const salt = cryptoAPI.getRandomValues(new Uint8Array(16));
     const iv = cryptoAPI.getRandomValues(new Uint8Array(12));
     
-    // Always use V3 (Argon2id) for new encryptions
+    // Always use V3.5 (Argon2id + Framing) for new encryptions
     const key = await this.deriveKeyArgon2id(password, salt);
 
     const encrypted = await cryptoAPI.subtle.encrypt(
@@ -172,8 +174,8 @@ export class ChaosLock {
       toArrayBuffer(data)
     );
 
-    // V3 Format: [HEADER_V3: 5] + [SALT: 16] + [IV: 12] + [CIPHER]
-    return this.concat(HEADER_V3, salt, iv, new Uint8Array(encrypted));
+    // V3.5 Format: [HEADER_V3_5: 5] + [SALT: 16] + [IV: 12] + [CIPHER]
+    return this.concat(HEADER_V3_5, salt, iv, new Uint8Array(encrypted));
   }
 
   static async decryptBinary(blob: Uint8Array, password: string): Promise<{ data: Uint8Array, version: number }> {
@@ -183,8 +185,11 @@ export class ChaosLock {
 
     if (blob.length > 5) {
         if (blob[0] === 0x42 && blob[1] === 0x53 && blob[2] === 0x54 && blob[3] === 0x4E) {
-            if (blob[4] === 0x03) version = 3;
-            else if (blob[4] === 0x02) version = 2;
+            // Protocol Version Byte
+            const vByte = blob[4];
+            if (vByte === 0x04) version = 4; // V3.5 (Framed)
+            else if (vByte === 0x03) version = 3; // V3 (Argon, Raw)
+            else if (vByte === 0x02) version = 2; // V2 (PBKDF2, Raw)
             offset = 5;
         }
     }
@@ -199,9 +204,11 @@ export class ChaosLock {
     // Attempt 1: Based on Header Version
     try {
         let key: CryptoKey;
-        if (version === 3) {
+        if (version >= 3) {
+            // V3 and V3.5 use Argon2id
             key = await this.deriveKeyArgon2id(password, salt);
         } else if (version === 2) {
+            // V2 uses PBKDF2 with high iterations
             key = await this.deriveKeyPBKDF2(password, salt, true, PBKDF2_V2_ITERATIONS);
         } else {
             // Assume Legacy V1 (Domain separated, 210k) - Default for version 1
@@ -246,14 +253,39 @@ export class ChaosLock {
   }
 
   static async pack(state: VaultState, password: string): Promise<string> {
-    const encrypted = await this.encryptBinary(this.enc(JSON.stringify(state)), password);
+    // 1. Canonical Serialization (Enforce Field Order)
+    const canonicalJson = BastionSerializer.serialize(state);
+    
+    // 2. Framing (Length Prefixing + Deterministic Padding)
+    // Only applied for V3.5+
+    const framedBytes = BastionSerializer.frame(canonicalJson);
+    
+    // 3. Encryption (Uses V3.5 Header 0x04)
+    const encrypted = await this.encryptBinary(framedBytes, password);
+    
     return btoa(String.fromCharCode(...encrypted));
   }
 
   static async unpack(blob: string, password: string): Promise<{ state: VaultState, version: number }> {
     const bytes = Uint8Array.from(atob(blob), c => c.charCodeAt(0));
+    
+    // 1. Decryption
     const { data, version } = await this.decryptBinary(bytes, password);
-    const state = JSON.parse(this.dec(data));
+    
+    // 2. Deframing Logic
+    let jsonStr: string;
+    
+    if (version >= 4) {
+        // V3.5+ uses Framing and Padding
+        jsonStr = BastionSerializer.deframe(data);
+    } else {
+        // V1-V3 uses Raw JSON
+        jsonStr = new TextDecoder().decode(data);
+    }
+    
+    // 3. Deserialization
+    const state = JSON.parse(jsonStr);
+    
     return { state, version };
   }
 }
@@ -412,7 +444,7 @@ export class SecretSharer {
             let den = 1n;
 
             for (let m = 0; m < kShares.length; m++) {
-                if (m === j) continue;
+                if (m == j) continue;
                 const xm = kShares[m].x;
                 
                 // Basis L_j(0) = product( (0 - xm) / (xj - xm) )

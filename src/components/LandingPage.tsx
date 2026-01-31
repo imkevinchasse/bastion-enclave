@@ -25,13 +25,13 @@ const DEMO_STAGES = {
   "service": "github.com",
   "username": "developer@bastion.os",
   "password": "correct-horse-battery-staple",
-  "protocol": "SOVEREIGN_V3.5"
+  "protocol": "SOVEREIGN_V3"
 }`
     },
     'process': {
         icon: <Binary size={20} />,
         label: 'Argon2id Transmutation',
-        desc: 'Memory-Hard Key Derivation',
+        desc: 'Memory-Hard Key Derivation (V3 Standard)',
         color: 'text-emerald-400',
         borderColor: 'border-emerald-500',
         bg: 'bg-emerald-500/10',
@@ -75,8 +75,8 @@ while (out.length < length) {
         color: 'text-amber-400',
         borderColor: 'border-amber-500',
         bg: 'bg-amber-500/10',
-        code: `// Header: "BSTN" + Version 0x04 (V3.5)
-[0x42, 0x53, 0x54, 0x4E, 0x04]
+        code: `// Header: "BSTN" + Version 0x03
+[0x42, 0x53, 0x54, 0x4E, 0x03]
 
 // Payload (AES-256-GCM)
 IV:  [12 bytes random]
@@ -128,7 +128,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 <div className="flex-1 text-center lg:text-left space-y-8 animate-in fade-in slide-in-from-left-8 duration-700">
                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-indigo-500/30 text-indigo-400 text-[10px] font-mono uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                        Protocol V3.5 Active
+                        Protocol V3 Active
                     </div>
                     
                     <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[1.1]">

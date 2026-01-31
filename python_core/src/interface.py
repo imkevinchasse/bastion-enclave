@@ -48,7 +48,7 @@ class BastionShell:
         self.clear()
         self.console.print(Panel.fit(
             "[bold cyan]BASTION SECURE ENCLAVE[/bold cyan]\n"
-            "[dim]Python Runtime v2.8.0 | Production Preview[/dim]",
+            "[dim]Python Runtime v3.0.0 | Sovereign Protocol[/dim]",
             border_style="indigo"
         ))
 
@@ -164,7 +164,7 @@ class BastionShell:
         while True:
             self.header()
             self.console.print("[bold]Credentials[/bold]")
-            self.console.print("1. Search / View")
+            self.console.print("1. Search / View (Support !weak, !old)")
             self.console.print("2. Add New")
             self.console.print("0. Back")
             
@@ -257,22 +257,41 @@ class BastionShell:
     # --- ACTIONS: LOGINS ---
 
     def action_config_search(self):
-        q = Prompt.ask("Search query (Enter for all)").lower()
+        q = Prompt.ask("Search query (Enter for all)").lower().strip()
         configs = self.manager.active_state.configs
-        hits = [c for c in configs if q in c['name'].lower() or q in c['username'].lower()]
+        hits = []
+
+        # IMPLEMENT BEHAVIORAL FINGERPRINT: CLI GRAMMAR
+        is_command = q.startswith("!")
+        
+        if is_command:
+            cmd = q[1:]
+            if cmd.startswith("weak"):
+                hits = [c for c in configs if c.get('length', 16) < 12 and not c.get('customPassword')]
+            elif cmd.startswith("old"):
+                # > 6 Months (approx)
+                cutoff = int(time.time() * 1000) - (1000 * 60 * 60 * 24 * 180)
+                hits = [c for c in configs if c.get('updatedAt', 0) < cutoff]
+            elif cmd.startswith("compromised"):
+                hits = [c for c in configs if c.get('breachStats', {}).get('status') == 'compromised']
+        else:
+            hits = [c for c in configs if q in c['name'].lower() or q in c['username'].lower()]
         
         if not hits:
             self.console.print("[red]No matches.[/red]")
             time.sleep(1)
             return
 
-        table = Table(title="Credentials")
+        table = Table(title=f"Credentials ({len(hits)} matches)")
         table.add_column("#", style="cyan")
         table.add_column("Service", style="bold white")
         table.add_column("Username", style="white")
+        table.add_column("Length", style="dim")
         
         for i, c in enumerate(hits):
-            table.add_row(str(i+1), c['name'], c['username'])
+            length_val = c.get('length', 16)
+            if c.get('customPassword'): length_val = "CUSTOM"
+            table.add_row(str(i+1), c['name'], c['username'], str(length_val))
         self.console.print(table)
         
         self.console.print("\n[bold]V[/bold]iew/Decrypt # | [bold]E[/bold]dit # | [bold]D[/bold]elete # | [bold]B[/bold]ack")
@@ -296,6 +315,9 @@ class BastionShell:
                 )
             self.console.print(Panel(f"[bold green]{pwd}[/bold green]", title="Password"))
             self.copy_to_clipboard(pwd)
+            # Update usage count
+            target['usageCount'] = target.get('usageCount', 0) + 1
+            self.manager.save_file()
             Prompt.ask("Press Enter to continue...")
 
         elif choice.startswith('e'):
@@ -323,6 +345,9 @@ class BastionShell:
             "length": 16,
             "useSymbols": True,
             "updatedAt": int(time.time()*1000),
+            "createdAt": int(time.time()*1000),
+            "usageCount": 0,
+            "category": "login",
             "customPassword": custom_pwd
         }
         
