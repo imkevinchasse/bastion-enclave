@@ -33,7 +33,7 @@ const cryptoAPI = globalThis.crypto;
 /* ===================== HELPERS ===================== */
 
 function toArrayBuffer(view: Uint8Array): ArrayBuffer {
-  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
 }
 
 /* ===================== CHAOS LOCK ===================== */

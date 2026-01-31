@@ -65,7 +65,7 @@ export default function App() {
   const isScanningRef = useRef(false);
 
   // Dev Mode Detection
-  const isDeveloper = vaultState ? (vaultState.flags & VaultFlags.DEVELOPER) === VaultFlags.DEVELOPER : false;
+  const isDeveloper = vaultState ? ((vaultState.flags || 0) & VaultFlags.DEVELOPER) === VaultFlags.DEVELOPER : false;
 
   // --- EFFECT: Browser Close Protection ---
   useEffect(() => {
