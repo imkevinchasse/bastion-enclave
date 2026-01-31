@@ -120,7 +120,7 @@ export class ChaosLock {
 
     return cryptoAPI.subtle.importKey(
       "raw",
-      derivedBytes,
+      derivedBytes as any,
       "AES-GCM",
       false,
       ["encrypt", "decrypt"]
@@ -352,7 +352,7 @@ export class SecretSharer {
         // 2. Encrypt the actual Secret with K
         // Using AES-GCM with a random IV
         const iv = crypto.getRandomValues(new Uint8Array(12));
-        const key = await crypto.subtle.importKey("raw", sessionKeyBytes, "AES-GCM", false, ["encrypt"]);
+        const key = await crypto.subtle.importKey("raw", sessionKeyBytes as any, "AES-GCM", false, ["encrypt"]);
         const encryptedSecret = await crypto.subtle.encrypt(
             { name: "AES-GCM", iv },
             key,
@@ -470,7 +470,7 @@ export class SecretSharer {
             const iv = payloadBytes.slice(0, 12);
             const cipher = payloadBytes.slice(12);
 
-            const key = await crypto.subtle.importKey("raw", sessionKeyBytes, "AES-GCM", false, ["decrypt"]);
+            const key = await crypto.subtle.importKey("raw", sessionKeyBytes as any, "AES-GCM", false, ["decrypt"]);
             const decrypted = await crypto.subtle.decrypt(
                 { name: "AES-GCM", iv },
                 key,
@@ -501,7 +501,7 @@ export class ResonanceEngine {
 
     const key = await cryptoAPI.subtle.importKey(
       "raw",
-      ChaosLock.hex2buf(keyHex),
+      ChaosLock.hex2buf(keyHex) as any,
       "AES-GCM",
       false,
       ["encrypt"]
@@ -539,7 +539,7 @@ export class ResonanceEngine {
 
     const key = await cryptoAPI.subtle.importKey(
       "raw",
-      ChaosLock.hex2buf(res.key),
+      ChaosLock.hex2buf(res.key) as any,
       "AES-GCM",
       false,
       ["decrypt"]
@@ -562,7 +562,7 @@ export class ChaosEngine {
     const enc = new TextEncoder();
     const baseKey = await cryptoAPI.subtle.importKey(
       "raw",
-      enc.encode(entropy),
+      enc.encode(entropy) as any,
       "PBKDF2",
       false,
       ["deriveBits"]
