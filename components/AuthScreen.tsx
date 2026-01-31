@@ -6,9 +6,10 @@ import { TopNav } from './TopNav';
 import { RefreshCw, Copy, Check, Eye, EyeOff, ShieldAlert, KeyRound, Upload, Trash2, LogIn, UserPlus, HelpCircle, HardDrive, FileText, Scan, Fingerprint, Info, Terminal } from 'lucide-react';
 import { ChaosLock, ChaosEngine } from '../services/cryptoService';
 import { VaultState, PublicPage, VaultFlags } from '../types';
+import { track } from '@vercel/analytics';
 
 interface AuthScreenProps {
-  onOpen: (state: VaultState, blob: string, password: string, isNew?: boolean) => void;
+  onOpen: (state: VaultState, blob: string, password: string, isNew?: boolean, isLegacy?: boolean) => void;
   onNavigate: (page: PublicPage) => void;
 }
 
@@ -139,8 +140,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
         // Reset version sentinel for new vault
         localStorage.removeItem('BASTION_MAX_VERSION');
 
+        // Analytics Beacon
+        track('Vault Created');
+
         // Pass isNew=true to trigger unsaved changes warning until backup
-        onOpen(initialState, newBlob, finalPassword, true);
+        onOpen(initialState, newBlob, finalPassword, true, false);
     } catch (e) {
         setError("Failed to create vault.");
     } finally {
@@ -174,12 +178,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
                 flags: VaultFlags.NONE // Seeds alone cannot recover flags, safe default
             };
             const newBlob = await ChaosLock.pack(recoveredState, password || 'temp');
+            
+            // Analytics Beacon
+            track('Identity Recovered');
+
             // Recovering from seed is effectively a "new" session in memory until saved
-            onOpen(recoveredState, newBlob, password, true);
+            onOpen(recoveredState, newBlob, password, true, false);
         } else {
-            const state = await ChaosLock.unpack(inputData, password);
-            // Opening from blob is a "safe" state
-            onOpen(state, inputData, password, false);
+            const { state, version } = await ChaosLock.unpack(inputData, password);
+            
+            const isLegacy = version < 3; // 3 is the current V3 standard (Argon2id)
+
+            // Analytics Beacon
+            track('Vault Unlocked');
+
+            // Opening from blob is a "safe" state, pass legacy flag
+            onOpen(state, inputData, password, false, isLegacy);
         }
 
     } catch (e) {
@@ -217,6 +231,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpen, onNavigate }) =>
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-slate-950 font-sans text-slate-200">
         
+        {/* Simplified Auth UI logic remains the same, just handling new unpack return type internally */}
         <div className="fixed inset-0 z-0 pointer-events-none">
             <div className="absolute inset-0 bg-grid opacity-20"></div>
             <div className="absolute top-[20%] right-[10%] w-[60%] h-[60%] bg-indigo-900/10 rounded-full blur-[120px] animate-pulse"></div>

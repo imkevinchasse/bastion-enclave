@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
-import { initLLM, runCredentialAudit, runPhishingAnalysis } from '../services/llmService';
+import { initLLM, runCredentialAudit, runPhishingAnalysis, isModelReady } from '../services/llmService';
 import { AuditResult, SecurityLevel, LLMStatus, PhishingResult } from '../types';
-import { BrainCircuit, AlertTriangle, CheckCircle, Download, Activity, ScanLine, Shield, Mail, Lock, User, Globe, AlertOctagon, Terminal, Eye, MessageSquare, Key } from 'lucide-react';
+import { BrainCircuit, AlertTriangle, CheckCircle, Download, Activity, ScanLine, Shield, Mail, Lock, User, Globe, AlertOctagon, Terminal, Eye, MessageSquare, Key, Layers, Workflow, Network, Zap } from 'lucide-react';
 
 type AnalysisMode = 'credential' | 'phishing';
 
@@ -21,35 +21,37 @@ export const AIAuditor: React.FC = () => {
   // Phishing State
   const [phishText, setPhishText] = useState('');
   const [phishResult, setPhishResult] = useState<PhishingResult | null>(null);
+  const [thinkingStep, setThinkingStep] = useState<number>(0); // 0=Idle, 1=Heuristic, 2=Semantic, 3=Reasoning
 
-  // Auto-init on mount
   useEffect(() => {
       loadModel();
   }, []);
 
   const loadModel = async () => {
-    if (llmStatus.status === 'ready' || llmStatus.status === 'loading') return;
+    if (isModelReady()) {
+        setLlmStatus({ status: 'ready', progress: 100, message: 'Hybrid Engine Active' });
+        return;
+    }
 
-    setLlmStatus({ status: 'loading', progress: 0, message: 'Initializing WebGPU Compute Shader...' });
+    setLlmStatus({ status: 'loading', progress: 0, message: 'Initializing Hybrid Architecture...' });
     try {
       await initLLM((progressText) => {
-        // Parse progress from text if possible, otherwise just show text
         setLlmStatus(prev => ({ ...prev, status: 'loading', message: progressText }));
       });
-      setLlmStatus({ status: 'ready', progress: 100, message: 'TinyLlama Neural Network Active' });
+      setLlmStatus({ status: 'ready', progress: 100, message: 'Neural Engines Ready' });
     } catch (e: any) {
-      setLlmStatus({ status: 'error', progress: 0, message: e.message || 'GPU Initialization Failed' });
+      setLlmStatus({ status: 'error', progress: 0, message: e.message || 'Initialization Failed' });
     }
   };
 
   const handleCredentialAudit = async () => {
     if (!password || llmStatus.status !== 'ready') return;
-    setLlmStatus(prev => ({ ...prev, status: 'loading', message: 'Running Inference...' }));
+    setLlmStatus(prev => ({ ...prev, status: 'loading', message: 'Extracting Signals...' }));
     
     try {
         const result = await runCredentialAudit(password, service, username);
         setCredResult(result);
-        setLlmStatus(prev => ({ ...prev, status: 'ready', message: 'Analysis Complete' }));
+        setLlmStatus(prev => ({ ...prev, status: 'ready', message: 'Audit Complete' }));
     } catch (e) {
         setLlmStatus(prev => ({ ...prev, status: 'error', message: 'Inference Error' }));
     }
@@ -57,15 +59,34 @@ export const AIAuditor: React.FC = () => {
 
   const handlePhishingScan = async () => {
       if (!phishText || llmStatus.status !== 'ready') return;
-      setLlmStatus(prev => ({ ...prev, status: 'loading', message: 'Scanning Patterns...' }));
-
-      try {
-          const result = await runPhishingAnalysis(phishText);
-          setPhishResult(result);
-          setLlmStatus(prev => ({ ...prev, status: 'ready', message: 'Scan Complete' }));
-      } catch (e) {
-          setLlmStatus(prev => ({ ...prev, status: 'error', message: 'Inference Error' }));
-      }
+      setPhishResult(null);
+      setThinkingStep(1);
+      
+      // Visualizing the 3-Layer Process with slight delays for UX
+      const sequence = async () => {
+          setLlmStatus(prev => ({ ...prev, status: 'loading', message: 'Layer 1: Deterministic Heuristics...' }));
+          await new Promise(r => setTimeout(r, 600)); 
+          
+          setThinkingStep(2);
+          setLlmStatus(prev => ({ ...prev, status: 'loading', message: 'Layer 2: MiniLM-L12 Semantic Mapping...' }));
+          
+          try {
+              const result = await runPhishingAnalysis(phishText);
+              
+              setThinkingStep(3);
+              setLlmStatus(prev => ({ ...prev, status: 'loading', message: 'Layer 3: TinyLlama Logic Synthesis...' }));
+              await new Promise(r => setTimeout(r, 800));
+              
+              setPhishResult(result);
+              setThinkingStep(0);
+              setLlmStatus(prev => ({ ...prev, status: 'ready', message: 'Analysis Complete' }));
+          } catch (e) {
+              setLlmStatus(prev => ({ ...prev, status: 'error', message: 'Pipeline Failed' }));
+              setThinkingStep(0);
+          }
+      };
+      
+      sequence();
   };
 
   const getScoreColor = (score: number) => {
@@ -73,6 +94,12 @@ export const AIAuditor: React.FC = () => {
     if (score >= 70) return 'text-blue-400 border-blue-500/50 bg-blue-500/10';
     if (score >= 50) return 'text-amber-400 border-amber-500/50 bg-amber-500/10';
     return 'text-red-400 border-red-500/50 bg-red-500/10';
+  };
+
+  const getIndicatorStyle = (ind: string) => {
+      const redSignals = ['URGENCY', 'CREDENTIAL', 'FINANCIAL', 'PRESSURE'];
+      if (redSignals.includes(ind)) return 'bg-red-500/10 text-red-400 border-red-500/20';
+      return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
   };
 
   return (
@@ -84,9 +111,11 @@ export const AIAuditor: React.FC = () => {
                 <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
                     <BrainCircuit size={28} className="text-violet-400" /> Neural Security Center
                 </h2>
-                <p className="text-slate-400 text-sm mt-1">
-                    On-device AI analysis powered by TinyLlama-1.1B via WebGPU.
-                </p>
+                <div className="flex items-center gap-4 text-slate-400 text-xs mt-1 font-mono">
+                    <span className="flex items-center gap-1"><Layers size={10}/> 3-Layer Pipeline</span>
+                    <span className="flex items-center gap-1"><Workflow size={10}/> MiniLM-L12 (Embeddings)</span>
+                    <span className="flex items-center gap-1"><Network size={10}/> TinyLlama (Logic)</span>
+                </div>
             </div>
 
             <div className={`flex items-center gap-3 px-4 py-2 rounded-xl border ${llmStatus.status === 'ready' ? 'bg-emerald-900/20 border-emerald-500/30' : llmStatus.status === 'error' ? 'bg-red-900/20 border-red-500/30' : 'bg-slate-900 border-white/10'}`}>
@@ -99,7 +128,7 @@ export const AIAuditor: React.FC = () => {
                 )}
                 <div className="text-right">
                     <div className={`text-xs font-bold uppercase tracking-widest ${llmStatus.status === 'ready' ? 'text-emerald-400' : 'text-slate-400'}`}>
-                        {llmStatus.status === 'error' ? 'OFFLINE' : llmStatus.status === 'ready' ? 'NEURAL ENGINE ACTIVE' : 'INITIALIZING'}
+                        {llmStatus.status === 'error' ? 'OFFLINE' : llmStatus.status === 'ready' ? 'HYBRID ENGINE ACTIVE' : 'PROCESSING'}
                     </div>
                     {llmStatus.message && <div className="text-[10px] text-slate-500 font-mono max-w-[200px] truncate">{llmStatus.message}</div>}
                 </div>
@@ -130,8 +159,7 @@ export const AIAuditor: React.FC = () => {
                     <AlertTriangle size={48} className="text-red-500 mb-4" />
                     <h3 className="text-xl font-bold text-white mb-2">Neural Engine Unavailable</h3>
                     <p className="text-slate-400 max-w-md mb-6">
-                        Your browser does not support WebGPU or the model failed to load. 
-                        Please use Chrome 113+, Edge, or enable <code className="bg-slate-800 px-1 rounded">unsafe-webgpu</code> flags.
+                        Your browser does not support WebGPU or the model failed to load.
                     </p>
                     <Button onClick={loadModel} variant="secondary">Retry Initialization</Button>
                 </div>
@@ -142,7 +170,7 @@ export const AIAuditor: React.FC = () => {
                     <div className="space-y-6">
                         <div className="bg-indigo-900/10 p-4 rounded-xl border border-indigo-500/20 text-indigo-200 text-sm">
                             <strong className="block mb-1 flex items-center gap-2"><ScanLine size={16}/> Context-Aware Analysis</strong>
-                            Unlike basic checkers, this AI analyzes the relationship between your password and your identity to detect targeted dictionary attacks.
+                            Checks for pattern leaks between your identity (Username/Service) and your password using heuristic matching.
                         </div>
 
                         <div className="space-y-4">
@@ -206,7 +234,7 @@ export const AIAuditor: React.FC = () => {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">AI Analysis</div>
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">AI Reasoning</div>
                                     <p className="text-slate-300 text-sm leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5">
                                         {credResult.analysis}
                                     </p>
@@ -231,8 +259,8 @@ export const AIAuditor: React.FC = () => {
                 <div className="grid lg:grid-cols-2 gap-12 h-full">
                     <div className="space-y-6">
                         <div className="bg-emerald-900/10 p-4 rounded-xl border border-emerald-500/20 text-emerald-200 text-sm">
-                            <strong className="block mb-1 flex items-center gap-2"><Mail size={16}/> Social Engineering Detector</strong>
-                            Paste the content of a suspicious email, SMS, or DM. The AI looks for urgency, authority mimicking, and linguistic manipulation patterns.
+                            <strong className="block mb-1 flex items-center gap-2"><Layers size={16}/> 3-Layer Defense Grid</strong>
+                            Content is processed sequentially: Heuristic Rules &rarr; Semantic Embeddings &rarr; Neural Reasoning.
                         </div>
 
                         <textarea 
@@ -242,13 +270,28 @@ export const AIAuditor: React.FC = () => {
                             onChange={e => setPhishText(e.target.value)}
                         />
 
+                        {thinkingStep > 0 && (
+                            <div className="flex items-center gap-2 py-2">
+                                <div className="flex gap-1">
+                                    <div className={`w-2 h-2 rounded-full ${thinkingStep >= 1 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`}></div>
+                                    <div className={`w-2 h-2 rounded-full ${thinkingStep >= 2 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`}></div>
+                                    <div className={`w-2 h-2 rounded-full ${thinkingStep >= 3 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`}></div>
+                                </div>
+                                <span className="text-xs text-emerald-400 font-mono animate-pulse">
+                                    {thinkingStep === 1 && 'EXTRACTING_SIGNALS'}
+                                    {thinkingStep === 2 && 'MAPPING_VECTORS'}
+                                    {thinkingStep === 3 && 'GENERATING_REPORT'}
+                                </span>
+                            </div>
+                        )}
+
                         <Button 
                             onClick={handlePhishingScan} 
-                            isLoading={llmStatus.status === 'loading'}
+                            isLoading={thinkingStep > 0}
                             className="w-full py-4 text-lg bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20"
                             disabled={!phishText}
                         >
-                            Analyze Intent
+                            <Zap size={18} /> Analyze Intent
                         </Button>
                     </div>
 
@@ -268,13 +311,13 @@ export const AIAuditor: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Model Confidence</div>
+                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Hybrid Confidence</div>
                                         <div className="text-xl font-mono text-white">{phishResult.confidence}%</div>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Behavioral Analysis</div>
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Neural Explanation</div>
                                     <p className="text-slate-300 text-sm leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5">
                                         {phishResult.analysis}
                                     </p>
@@ -282,10 +325,10 @@ export const AIAuditor: React.FC = () => {
 
                                 {phishResult.indicators.length > 0 && (
                                     <div className="space-y-2">
-                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Detected Triggers</div>
+                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Detected Signals</div>
                                         <div className="flex flex-wrap gap-2">
                                             {phishResult.indicators.map((ind, i) => (
-                                                <span key={i} className="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                                <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border ${getIndicatorStyle(ind)}`}>
                                                     <AlertTriangle size={10} /> {ind}
                                                 </span>
                                             ))}

@@ -4,7 +4,7 @@ import { TopNav } from './TopNav';
 import { LandingFeatures } from './LandingFeatures';
 import { Button } from './Button';
 import { BrandLogo } from './BrandLogo';
-import { ArrowRight, HeartHandshake, Zap, HardDrive, FileJson, Binary, Shield, ServerOff, Scaling, Terminal, Lock, Globe, Database, Anchor } from 'lucide-react';
+import { ArrowRight, HeartHandshake, Zap, HardDrive, FileJson, Binary, Shield, ServerOff, Scaling, Terminal, Lock, Globe, Database, Anchor, RefreshCw, Cpu } from 'lucide-react';
 import { PublicPage } from '../types';
 
 interface LandingPageProps {
@@ -24,65 +24,81 @@ const DEMO_STAGES = {
   "service": "github.com",
   "username": "developer@bastion.os",
   "password": "correct-horse-battery-staple",
-  "meta": {
-    "created": 1709428120400,
-    "security": "critical"
-  }
+  "protocol": "SOVEREIGN_V3"
 }`
     },
     'process': {
         icon: <Binary size={20} />,
-        label: 'AES-GCM Encryption',
-        desc: 'Web Crypto API transformation',
+        label: 'Argon2id Transmutation',
+        desc: 'Memory-Hard Key Derivation (V3 Standard)',
         color: 'text-emerald-400',
         borderColor: 'border-emerald-500',
         bg: 'bg-emerald-500/10',
-        code: `// 1. Generate IV (Initialization Vector)
-const iv = window.crypto.getRandomValues(new Uint8Array(12));
-// [142, 21, 89, 210, 44, 9, 241, 19, 78, 233, 11, 5]
+        code: `// Sovereign-V3: Anti-ASIC Hardening
+const masterKey = await argon2id({
+  password: userInput,
+  salt: randomBytes(16),
+  parallelism: 1,
+  iterations: 3,
+  memorySize: 65536, // 64 MB RAM Cost
+  hashLength: 32,
+  outputType: 'binary'
+});
 
-// 2. Encrypt with Master Key (PBKDF2 Derived)
-const key = await window.crypto.subtle.importKey(...);
-const cipher = await window.crypto.subtle.encrypt(
-  { name: "AES-GCM", iv: iv },
-  key,
-  encoder.encode(data)
-);
+// STATUS: KEY DERIVED (TIME COST: ~250ms)`
+    },
+    'chaos': {
+        icon: <RefreshCw size={20} />,
+        label: 'Chaos Engine V2',
+        desc: 'Deterministic Stateless Generation',
+        color: 'text-violet-400',
+        borderColor: 'border-violet-500',
+        bg: 'bg-violet-500/10',
+        code: `// Chaos V2: HMAC-SHA512 + Rejection Sampling
+const salt = "BASTION_V2::" + service + "::" + user;
+const flux = pbkdf2(entropy, salt, 210000, 512);
 
-// STATUS: OPAQUE BINARY BLOB GENERATED`
+// Zero-Bias Sampling Loop
+while (out.length < length) {
+  const byte = flux[i++];
+  if (byte < limit) { // Reject biased bytes
+    out += charset[byte % charset.length];
+  }
+}
+// RESULT: 8x9#mP2$v... (Never Stored)`
     },
     'storage': {
         icon: <HardDrive size={20} />,
         label: 'Local Storage',
-        desc: 'Encrypted blob persisted to disk',
+        desc: 'Authenticated Encryption (AEAD)',
         color: 'text-amber-400',
         borderColor: 'border-amber-500',
         bg: 'bg-amber-500/10',
-        code: `BASTION_V1_BLOB:
-eyJpdiI6IjhFNTVEOUQyQ0MwOSIsImNpcGhlciI6ImE0Zj
-kyOGMwZDEyOGU5MmY4OTJjODkwMjFjODkwMTJjODkwMT
-JjODkwZjgxMjkwNDgxMjkwNDgxMjkwNDgxMjkwNTgxMjkw
-NTgxMjkwNTgxMjkwNTgyMTkwNTgxMjkwNTgxMjkwNTgxMj
-kwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgx
-MjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNT
-gxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkwNTgxMjkw
-`
+        code: `// Header: "BSTN" + Version 0x03
+[0x42, 0x53, 0x54, 0x4E, 0x03]
+
+// Payload (AES-256-GCM)
+IV:  [12 bytes random]
+TAG: [16 bytes auth]
+CIPHER: [Encrypted Data]
+
+// STORAGE LOCATION: IndexedDB / LocalStorage
+// SERVER STATUS: 404 NOT FOUND (No Backend)`
     }
 };
 
 const COMPARISON_DATA = [
     { feature: "Primary Storage Location", bastion: "Device (Local)", lp: "Cloud (Central)", bw: "Cloud (Central)", op: "Cloud (Central)", kp: "Device (Local)" },
-    { feature: "Centralized Attack Surface", bastion: "None (Distributed)", lp: "High (Target Rich)", bw: "High (Target Rich)", op: "High (Target Rich)", kp: "None" },
-    { feature: "Zero-Knowledge Architecture", bastion: "Verifiable (Client-Side)", lp: "Policy Based", bw: "Audited Code", op: "Proprietary", kp: "Open Source" },
-    { feature: "Browser Autofill Hooks", bastion: "Resistant (Manual)", lp: "Deep Integration", bw: "Extension Hooks", op: "Extension Hooks", kp: "Auto-Type" },
-    { feature: "Master Key Transmission", bastion: "Never Leaves Device", lp: "Hash Sent to Auth", bw: "Hash Sent to Auth", op: "SRP Protocol", kp: "Never Sent" },
+    { feature: "Password Logic", bastion: "Deterministic (Math)", lp: "Random (Database)", bw: "Random (Database)", op: "Random (Database)", kp: "Random (Database)" },
+    { feature: "KDF / Hashing Hardness", bastion: "Argon2id (64MB)", lp: "PBKDF2 (Low RAM)", bw: "PBKDF2 (Low RAM)", op: "PBKDF2 (Low RAM)", kp: "Argon2 (Config)" },
+    { feature: "Zero-Knowledge Architecture", bastion: "Guaranteed (Code)", lp: "Policy Based", bw: "Audited Code", op: "Proprietary", kp: "Open Source" },
+    { feature: "Centralized Attack Surface", bastion: "None (Distributed)", lp: "High (Honeypot)", bw: "High (Honeypot)", op: "High (Honeypot)", kp: "None" },
     { feature: "Breach Monitoring", bastion: "k-Anonymity (API)", lp: "Cloud Scans", bw: "Cloud Scans", op: "Watchtower", kp: "Plugin Required" },
     { feature: "AI Security Analysis", bastion: "On-Device (WebGPU)", lp: "None", bw: "None", op: "None", kp: "None" },
-    { feature: "Cost Model", bastion: "Sovereign (Free)", lp: "Subscription", bw: "Freemium", op: "Subscription", kp: "Free (GPL)" },
 ];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
-  const [activeStage, setActiveStage] = useState<'input' | 'process' | 'storage'>('input');
+  const [activeStage, setActiveStage] = useState<'input' | 'process' | 'chaos' | 'storage'>('input');
   
   const currentDemo = DEMO_STAGES[activeStage];
 
@@ -106,20 +122,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 <div className="flex-1 text-center lg:text-left space-y-8 animate-in fade-in slide-in-from-left-8 duration-700">
                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-indigo-500/30 text-indigo-400 text-[10px] font-mono uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                        Bastion Protocol v2.6.0
+                        Protocol v2.8.0 Active
                     </div>
                     
                     <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[1.1]">
-                        The Cloud is Leaking. <br/>
+                        The Cloud is Compromised. <br/>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-emerald-400">
-                            Go Dark.
+                            Go Sovereign.
                         </span>
                     </h1>
                     
                     <p className="text-xl text-slate-400 font-light leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                        We don't want your data. We don't want your keys.
-                        Bastion Enclave is an offline-first vault that replaces "trust" with mathematics.
-                        Your identity exists only on your device.
+                        Bastion Enclave replaces "trust" with <strong>Argon2id Cryptography</strong> and <strong>Deterministic Math</strong>. 
+                        We don't store your passwords; we calculate them on-the-fly. Your data physically cannot leave your device.
                     </p>
                     
                     <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-4">
@@ -158,9 +173,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                         <div className="space-y-8">
                             <h2 className="text-3xl md:text-4xl font-bold text-white">Trust No One. Not Even Us.</h2>
                             <p className="text-lg text-slate-400 leading-relaxed">
-                                Traditional password managers act as a centralized honeypot for attackers. If their cloud is breached, your vault is just one decryption away from exposure.
+                                Most password managers claim "Zero Knowledge" while still storing your encrypted blob on their central servers. This is a <strong>policy</strong>, not a guarantee. If their server is subpoenaed or breached, your data is at risk.
                                 <br/><br/>
-                                <strong className="text-white">Bastion is different.</strong> It executes entirely in your browser's memory. The only thing we store is a blob of random noise that only you can organize.
+                                <strong className="text-white">Bastion is architecturally different.</strong> It executes entirely in your browser's memory. We provide the code; you provide the execution environment. There is no central database to breach.
                             </p>
                             
                             {/* Interactive Pipeline Triggers */}
@@ -187,10 +202,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                                         <Zap size={20}/>
                                     </div>
                                     <div>
-                                        <h4 className={`font-bold ${activeStage === 'process' ? 'text-white' : 'text-slate-400'}`}>2. AES-GCM Transmutation</h4>
-                                        <p className="text-xs text-slate-500">WebCrypto primitives isolate keys.</p>
+                                        <h4 className={`font-bold ${activeStage === 'process' ? 'text-white' : 'text-slate-400'}`}>2. Argon2id Hardening</h4>
+                                        <p className="text-xs text-slate-500">V3 Protocol: Memory-hard derivation.</p>
                                     </div>
                                     <ArrowRight className={`ml-auto ${activeStage === 'process' ? 'text-emerald-400' : 'text-slate-700'} group-hover:translate-x-1 transition-transform`} size={16} />
+                                </button>
+
+                                <button 
+                                    onClick={() => setActiveStage('chaos')}
+                                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left group ${activeStage === 'chaos' ? 'bg-violet-500/10 border-violet-500 shadow-[0_0_20px_rgba(139,92,246,0.2)]' : 'bg-slate-950 border-white/5 hover:border-white/20'}`}
+                                >
+                                    <div className={`p-3 rounded-lg ${activeStage === 'chaos' ? 'bg-violet-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                                        <RefreshCw size={20}/>
+                                    </div>
+                                    <div>
+                                        <h4 className={`font-bold ${activeStage === 'chaos' ? 'text-white' : 'text-slate-400'}`}>3. Chaos Engine V2</h4>
+                                        <p className="text-xs text-slate-500">Deterministic SHA-512 Generation.</p>
+                                    </div>
+                                    <ArrowRight className={`ml-auto ${activeStage === 'chaos' ? 'text-violet-400' : 'text-slate-700'} group-hover:translate-x-1 transition-transform`} size={16} />
                                 </button>
 
                                 <button 
@@ -201,7 +230,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                                         <HardDrive size={20}/>
                                     </div>
                                     <div>
-                                        <h4 className={`font-bold ${activeStage === 'storage' ? 'text-white' : 'text-slate-400'}`}>3. Opaque Persistence</h4>
+                                        <h4 className={`font-bold ${activeStage === 'storage' ? 'text-white' : 'text-slate-400'}`}>4. Opaque Persistence</h4>
                                         <p className="text-xs text-slate-500">Only encrypted noise touches the disk.</p>
                                     </div>
                                     <ArrowRight className={`ml-auto ${activeStage === 'storage' ? 'text-amber-400' : 'text-slate-700'} group-hover:translate-x-1 transition-transform`} size={16} />
@@ -243,7 +272,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                             {/* Status Footer */}
                             <div className="px-4 py-2 bg-slate-900 border-t border-white/5 text-[10px] font-mono flex justify-between text-slate-500">
                                 <span>UTF-8</span>
-                                <span>{activeStage === 'storage' ? 'ENCRYPTED' : activeStage === 'process' ? 'PROCESSING' : 'PLAINTEXT'}</span>
+                                <span>{activeStage === 'storage' ? 'ENCRYPTED' : activeStage === 'process' ? 'PROCESSING' : activeStage === 'chaos' ? 'COMPUTING' : 'PLAINTEXT'}</span>
                             </div>
                         </div>
                     </div>
@@ -260,7 +289,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                         <h2 className="text-3xl font-bold text-white">Centralization is Vulnerability</h2>
                         <p className="text-lg text-slate-400 leading-relaxed">
                             When 50 million passwords are stored on one server, it becomes the ultimate target for nation-state actors. 
-                            If that server falls, encryption is the only defense—and history shows that metadata leaks and weak master password policies often render server-side encryption moot.
+                            If that server falls, encryption is the only defense—and history shows that metadata leaks, weak PBKDF2 iterations, and operational errors often render server-side encryption moot.
                         </p>
                     </div>
                     <div className="space-y-6">

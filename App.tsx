@@ -16,13 +16,14 @@ import { DocsPage } from './components/DocsPage';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { SecurityMonitor } from './components/SecurityMonitor'; 
 import { Generator } from './components/Generator';
+import { BreachPage } from './components/BreachPage';
+import { MigrationModal } from './components/MigrationModal';
 import { VaultConfig, AppTab, VaultState, PublicPage, VaultFlags, BreachStats } from './types';
 import { ChaosLock, ChaosEngine } from './services/cryptoService';
 import { BreachService } from './services/breachService';
 import { Shield, LogOut, Terminal, Copy, Check, Layers, Cpu, Book, FileLock2, Users, Download, AlertTriangle, Blocks, Fingerprint, AlertOctagon, RefreshCw, FlaskConical } from 'lucide-react';
 import { Button } from './components/Button';
 import { BrandLogo } from './components/BrandLogo';
-import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const NavButton = ({active, onClick, icon, children}: any) => (
     <button onClick={onClick} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 ${active ? 'bg-indigo-500/10 text-indigo-400 shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)] border border-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'}`}>
@@ -51,8 +52,9 @@ export default function App() {
 
   const [currentTab, setCurrentTab] = useState<AppTab>(AppTab.VAULT);
   
-  // Safe Exit State
+  // Modals & Notifications
   const [showExitModal, setShowExitModal] = useState(false);
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
 
   // Sentinel State (Rollback Protection)
   const [rollbackAlert, setRollbackAlert] = useState<{current: number, known: number} | null>(null);
@@ -61,7 +63,7 @@ export default function App() {
   const [breachReport, setBreachReport] = useState<{count: number, items: string[]} | null>(null);
   const isScanningRef = useRef(false);
 
-  // Dev Mode State (Checked via Flag Bitmask)
+  // Dev Mode Detection
   const isDeveloper = vaultState ? (vaultState.flags & VaultFlags.DEVELOPER) === VaultFlags.DEVELOPER : false;
 
   // --- EFFECT: Browser Close Protection ---
@@ -104,14 +106,12 @@ export default function App() {
           try {
               // Iterate sequentially to enforce rate limits
               for (const config of staleConfigs) {
-                  // Exit if component unmounted or logout occurred
                   if (!isScanningRef.current) break;
 
                   // 1. Generate Password (In-Memory)
                   const password = await ChaosEngine.transmute(vaultState.entropy, config);
                   
                   // 2. Check Breach (API)
-                  // HIBP Policy: 1 request per credential, k-anonymity
                   const pwnCount = await BreachService.checkPassword(password);
                   
                   // 3. Construct Result
@@ -122,19 +122,13 @@ export default function App() {
                   };
 
                   // 4. Update Local State (Persist Progress)
-                  // We update item-by-item or batch to ensure resumption works if user quits
                   setVaultState(prev => {
                       if (!prev) return null;
                       const newConfigs = prev.configs.map(c => 
                           c.id === config.id ? { ...c, breachStats: stats } : c
                       );
                       const newState = { ...prev, configs: newConfigs };
-                      
-                      // Trigger encryption/save silently
-                      // Note: In a real heavy loop, we might want to debounce this save
-                      // But for safety, we'll rely on the fact that rate limit is slow (500ms)
-                      // so saving every ~1-2s is acceptable overhead.
-                      handleUpdateVault(newState, true); // true = silent (no version bump if possible, or just standard)
+                      handleUpdateVault(newState, true); 
                       return newState;
                   });
 
@@ -144,18 +138,15 @@ export default function App() {
                   }
 
                   // 5. Strict Rate Limiting (500ms)
-                  // Prevents API congestion and ensures "polite" behavior
                   await new Promise(r => setTimeout(r, 500));
               }
 
-              // Report findings if any
               if (compromisedItems.length > 0) {
                   setBreachReport({ count: compromisedItems.length, items: compromisedNames });
               }
 
           } catch (e: any) {
-              console.warn("[Bastion] Scan paused due to network/congestion:", e.message);
-              // We stop scanning. Stale items will be picked up next time.
+              console.warn("[Bastion] Scan paused:", e.message);
           } finally {
               isScanningRef.current = false;
           }
@@ -164,9 +155,15 @@ export default function App() {
       runAutoScan();
 
       return () => { isScanningRef.current = false; };
-  }, [vaultState?.entropy]); // Dependency ensures run on load
+  }, [vaultState?.entropy]);
 
-  const handleOpenVault = (state: VaultState, encryptedBlob: string, password: string, isNew: boolean = false) => {
+  const handleOpenVault = (
+      state: VaultState, 
+      encryptedBlob: string, 
+      password: string, 
+      isNew: boolean = false,
+      isLegacy: boolean = false
+  ) => {
     // Migration: Migrate boolean 'compromised' to new 'breachStats' if missing
     state.configs = state.configs.map(c => {
         if (c.compromised && !c.breachStats) {
@@ -174,10 +171,10 @@ export default function App() {
                 ...c,
                 breachStats: {
                     status: 'compromised',
-                    lastChecked: Date.now(), // Estimate
-                    seenCount: 1 // Unknown exact count, but marked as bad
+                    lastChecked: Date.now(),
+                    seenCount: 1 
                 },
-                compromised: undefined // Remove legacy flag
+                compromised: undefined 
             };
         }
         return c;
@@ -211,25 +208,25 @@ export default function App() {
     
     setLastBackupTime(isNew ? 0 : Date.now());
     setHasCopiedSeed(false);
+
+    if (isLegacy) {
+        handleUpdateVault(state, true);
+        setShowMigrationModal(true);
+    }
   };
 
   const handleUpdateVault = async (newState: VaultState, silent: boolean = false) => {
-    // 1. Update Version
     const nextVersion = (newState.version || 0) + 1;
     newState.version = nextVersion;
     newState.lastModified = Date.now();
 
-    // 2. Encrypt & Save
     const encrypted = await ChaosLock.pack(newState, sessionPassword);
     
-    // In React state, we might not want to trigger a full re-render for background updates
-    // But for simplicity and consistency, we do.
     if (!silent) {
         setVaultState(newState);
         setVaultString(encrypted);
     }
     
-    // Always persist to storage
     localStorage.setItem('BASTION_VAULT', encrypted);
     localStorage.setItem('BASTION_MAX_VERSION', nextVersion.toString());
     
@@ -272,6 +269,7 @@ export default function App() {
       setLastBackupTime(0);
       setHasCopiedSeed(false);
       setShowExitModal(false);
+      setShowMigrationModal(false);
       setBreachReport(null);
       isScanningRef.current = false;
   };
@@ -284,6 +282,7 @@ export default function App() {
     if (publicPage === 'documents' && !vaultState) return <DocumentsPage onNavigate={setPublicPage} />;
     if (publicPage === 'game' && !vaultState) return <GamePage onNavigate={setPublicPage} />;
     if (publicPage === 'docs' && !vaultState) return <DocsPage onNavigate={setPublicPage} />;
+    if (publicPage === 'breach' && !vaultState) return <BreachPage onNavigate={setPublicPage} />;
     if (!vaultState) return <AuthScreen onOpen={handleOpenVault} onNavigate={setPublicPage} />;
 
     return (
@@ -478,6 +477,15 @@ export default function App() {
               </div>
           </main>
 
+          {/* Notifications & Modals */}
+          
+          {showMigrationModal && (
+              <MigrationModal 
+                  onDismiss={() => setShowMigrationModal(false)}
+                  onDownloadBackup={handleBackup}
+              />
+          )}
+
           {/* Breach Report Modal */}
           {breachReport && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
@@ -553,7 +561,6 @@ export default function App() {
 
   return (
     <>
-      <SpeedInsights />
       {renderContent()}
     </>
   );

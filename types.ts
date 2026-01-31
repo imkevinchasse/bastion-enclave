@@ -128,4 +128,4 @@ export interface LLMStatus {
   message: string;
 }
 
-export type PublicPage = 'landing' | 'auth' | 'news' | 'documents' | 'game' | 'docs';
+export type PublicPage = 'landing' | 'auth' | 'news' | 'documents' | 'game' | 'docs' | 'breach';

@@ -11,11 +11,24 @@ from typing import List, Dict, Optional, Tuple
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
+import argon2
 
 # --- CONSTANTS ---
-CURRENT_ITERATIONS = 210_000
-LEGACY_ITERATIONS = 100_000
-MAGIC_HEADER = "BASTION_V3::"
+# V3 (Argon2id) Parameters
+ARGON_TIME_COST = 3
+ARGON_MEMORY_COST = 65536 # 64 MB
+ARGON_PARALLELISM = 1
+ARGON_HASH_LEN = 32
+ARGON_TYPE = argon2.Type.ID
+
+# Legacy Parameters
+LEGACY_ITERATIONS_V2 = 210_000
+LEGACY_ITERATIONS_V1 = 100_000
+
+# Headers
+HEADER_V3 = b"\x42\x53\x54\x4E\x03" # BSTN + 0x03
+HEADER_V2 = b"\x42\x53\x54\x4E\x02" # BSTN + 0x02 (Supported for read)
+MAGIC_HEADER_STR = "BASTION_V3::" # Wrapper for text file storage
 
 # --- DATA MODELS ---
 
@@ -27,12 +40,26 @@ class VaultState:
     version: int = 1
     lastModified: int = 0
     flags: int = 0
+    notes: List[Dict] = field(default_factory=list)
+    contacts: List[Dict] = field(default_factory=list)
 
 # --- CRYPTO PRIMITIVES ---
 
 class BastionCrypto:
     @staticmethod
-    def derive_key(password: str, salt: bytes, use_domain_sep: bool = True, iterations: int = CURRENT_ITERATIONS) -> bytes:
+    def derive_key_argon2(password: str, salt: bytes) -> bytes:
+        return argon2.low_level.hash_secret_raw(
+            secret=password.encode('utf-8'),
+            salt=salt,
+            time_cost=ARGON_TIME_COST,
+            memory_cost=ARGON_MEMORY_COST,
+            parallelism=ARGON_PARALLELISM,
+            hash_len=ARGON_HASH_LEN,
+            type=ARGON_TYPE
+        )
+
+    @staticmethod
+    def derive_key_pbkdf2(password: str, salt: bytes, use_domain_sep: bool = True, iterations: int = LEGACY_ITERATIONS_V2) -> bytes:
         final_salt = salt
         if use_domain_sep:
             domain_prefix = b"BASTION_VAULT_V1::"
@@ -48,61 +75,82 @@ class BastionCrypto:
 
     @staticmethod
     def encrypt_blob(data_json: str, password: str) -> str:
+        # V3 Encryption: Header + Salt + IV + Cipher
         salt = secrets.token_bytes(16)
         iv = secrets.token_bytes(12)
         
-        # Always encrypt using Current Standard
-        key = BastionCrypto.derive_key(password, salt, use_domain_sep=True, iterations=CURRENT_ITERATIONS)
+        key = BastionCrypto.derive_key_argon2(password, salt)
         aesgcm = AESGCM(key)
         
         plaintext = data_json.encode('utf-8')
         ciphertext = aesgcm.encrypt(iv, plaintext, None)
         
-        # Blob Structure: SALT(16) | IV(12) | CIPHERTEXT
-        blob = salt + iv + ciphertext
+        blob = HEADER_V3 + salt + iv + ciphertext
         return base64.b64encode(blob).decode('utf-8')
 
     @staticmethod
     def decrypt_blob(blob_b64: str, password: str) -> Tuple[Optional[str], bool]:
         """
-        Attempts to decrypt the blob using multiple strategies.
-        Returns: (decrypted_json_string, is_legacy_format)
+        Attempts decryption. Returns (json_str, is_legacy_format).
         """
         try:
             data = base64.b64decode(blob_b64)
-            if len(data) < 28: return None, False
             
+            # Check for Protocol Headers
+            if len(data) > 5 and data[0:4] == b"BSTN":
+                version = data[4]
+                
+                if version == 3:
+                    # V3: Argon2id
+                    salt = data[5:21]
+                    iv = data[21:33]
+                    ciphertext = data[33:]
+                    try:
+                        key = BastionCrypto.derive_key_argon2(password, salt)
+                        aesgcm = AESGCM(key)
+                        pt = aesgcm.decrypt(iv, ciphertext, None)
+                        return pt.decode('utf-8'), False
+                    except Exception:
+                        return None, False
+
+                elif version == 2:
+                    # V2: PBKDF2
+                    salt = data[5:21]
+                    iv = data[21:33]
+                    ciphertext = data[33:]
+                    try:
+                        key = BastionCrypto.derive_key_pbkdf2(password, salt, True, LEGACY_ITERATIONS_V2)
+                        aesgcm = AESGCM(key)
+                        pt = aesgcm.decrypt(iv, ciphertext, None)
+                        return pt.decode('utf-8'), True # Mark for upgrade
+                    except Exception:
+                        return None, False
+            
+            # --- LEGACY FALLBACKS (No Header) ---
+            if len(data) < 28: return None, False
             salt = data[0:16]
             iv = data[16:28]
             ciphertext = data[28:]
-            
-            def try_strategy(domain_sep: bool, iters: int) -> Optional[str]:
-                try:
-                    key = BastionCrypto.derive_key(password, salt, domain_sep, iters)
-                    aesgcm = AESGCM(key)
-                    plaintext = aesgcm.decrypt(iv, ciphertext, None)
-                    return plaintext.decode('utf-8')
-                except Exception:
-                    return None
 
-            # Strategy 1: Current Standard (V3/V2)
-            # Domain Separation + 210k Iterations
-            res = try_strategy(True, CURRENT_ITERATIONS)
-            if res: return res, False
+            # Try V1 (PBKDF2 with Domain Sep)
+            try:
+                key = BastionCrypto.derive_key_pbkdf2(password, salt, True, LEGACY_ITERATIONS_V2)
+                aesgcm = AESGCM(key)
+                pt = aesgcm.decrypt(iv, ciphertext, None)
+                return pt.decode('utf-8'), True
+            except: pass
 
-            # Strategy 2: Legacy V1
-            # No Domain Separation + 210k Iterations
-            res = try_strategy(False, CURRENT_ITERATIONS)
-            if res: return res, True # Legacy
-
-            # Strategy 3: Ancient
-            # No Domain Separation + 100k Iterations
-            res = try_strategy(False, LEGACY_ITERATIONS)
-            if res: return res, True # Legacy
+            # Try V0 (Ancient, no domain sep)
+            try:
+                key = BastionCrypto.derive_key_pbkdf2(password, salt, False, LEGACY_ITERATIONS_V1)
+                aesgcm = AESGCM(key)
+                pt = aesgcm.decrypt(iv, ciphertext, None)
+                return pt.decode('utf-8'), True
+            except: pass
 
             return None, False
 
-        except Exception:
+        except Exception as e:
             return None, False
 
 # --- STORAGE MANAGER ---
@@ -123,16 +171,16 @@ class VaultManager:
             with open(self.filepath, "r") as f:
                 content = f.read().strip()
             
-            if content.startswith(MAGIC_HEADER):
-                # V3 Format
-                payload = content[len(MAGIC_HEADER):]
+            if content.startswith(MAGIC_HEADER_STR):
+                # Wrapped Format
+                payload = content[len(MAGIC_HEADER_STR):]
                 decoded = base64.b64decode(payload).decode('utf-8')
                 self.blobs = json.loads(decoded)
             elif content.startswith("["):
-                # JSON Array (Legacy)
+                # Plain JSON Array (Legacy Wrapper)
                 self.blobs = json.loads(content)
             else:
-                # Raw Blob (Legacy V1)
+                # Raw Blob
                 self.blobs = [content]
             return True
         except Exception as e:
@@ -141,8 +189,10 @@ class VaultManager:
 
     def save_file(self):
         if self.active_state and self.active_password:
-            # Update active blob
+            # Update active blob using V3 (Argon2id)
             self.active_state.lastModified = int(time.time() * 1000)
+            self.active_state.version += 1
+            
             new_blob = BastionCrypto.encrypt_blob(
                 json.dumps(asdict(self.active_state)), 
                 self.active_password
@@ -156,14 +206,13 @@ class VaultManager:
 
         payload = json.dumps(self.blobs)
         b64 = base64.b64encode(payload.encode('utf-8')).decode('utf-8')
-        final_out = MAGIC_HEADER + b64
+        final_out = MAGIC_HEADER_STR + b64
         
         # Atomic Write
         temp = self.filepath + ".tmp"
         with open(temp, "w") as f:
             f.write(final_out)
         shutil.move(temp, self.filepath)
-        # Secure Permissions
         try:
             os.chmod(self.filepath, 0o600)
         except:
@@ -175,19 +224,28 @@ class VaultManager:
             
             if decrypted_json:
                 data = json.loads(decrypted_json)
-                self.active_state = VaultState(**data)
+                # Handle missing fields in older vaults
+                self.active_state = VaultState(
+                    entropy=data['entropy'],
+                    configs=data.get('configs', []),
+                    locker=data.get('locker', []),
+                    version=data.get('version', 1),
+                    lastModified=data.get('lastModified', 0),
+                    flags=data.get('flags', 0),
+                    notes=data.get('notes', []),
+                    contacts=data.get('contacts', [])
+                )
                 self.active_password = password
                 self.active_blob_index = idx
                 
-                # --- AUTOMATIC MIGRATION CHECK ---
                 if is_legacy:
-                    print("\n[SYSTEM] Legacy encryption format detected.")
-                    print("[SYSTEM] Seamlessly migrating vault to V3 Algorithm (AES-GCM + Domain Separation)...")
+                    print("\n[SYSTEM] Legacy vault format detected.")
+                    print("[SYSTEM] Upgrading to Sovereign-V3 Protocol (Argon2id)...")
                     try:
                         self.save_file()
-                        print("[SYSTEM] Migration complete. Vault secured with latest standards.\n")
+                        print("[SYSTEM] Upgrade complete.\n")
                     except Exception as e:
-                        print(f"[WARN] Automatic migration failed: {e}")
+                        print(f"[WARN] Upgrade failed: {e}")
                 
                 return True
         return False
@@ -199,5 +257,10 @@ class VaultManager:
         self.active_state = state
         self.active_password = password
         self.active_blob_index = 0
-        self.blobs.append("") # Placeholder
+        self.blobs.append("") 
         self.save_file()
+
+    def export_decrypted_json(self) -> str:
+        if not self.active_state:
+            raise PermissionError("Vault locked")
+        return json.dumps(asdict(self.active_state), indent=2)

@@ -125,8 +125,8 @@ const CipherTool = () => {
                 // Expect Base64 input
                 const binStr = atob(input);
                 const bytes = Uint8Array.from(binStr, c => c.charCodeAt(0));
-                const decrypted = await ChaosLock.decryptBinary(bytes, password);
-                setOutput(new TextDecoder().decode(decrypted));
+                const { data } = await ChaosLock.decryptBinary(bytes, password);
+                setOutput(new TextDecoder().decode(data));
             }
         } catch (e) {
             setError(mode === 'decrypt' ? 'Decryption failed. Check password or format.' : 'Encryption failed.');

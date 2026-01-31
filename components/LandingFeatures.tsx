@@ -9,107 +9,107 @@ const FEATURES = [
     id: 'chaos',
     icon: <Atom size={28} className="text-indigo-400" />,
     title: "Chaos Engine™",
-    short: "Generate high-entropy, deterministic passwords instantly.",
-    specs: ["PBKDF2-HMAC", "REJECTION SAMPLING", "STATELESS"]
+    short: "Stateless, deterministic password computation. No database required.",
+    specs: ["HMAC-SHA512", "REJECTION SAMPLING", "DOMAIN SEPARATION"]
   },
   {
     id: 'locker',
     icon: <Archive size={28} className="text-amber-400" />,
     title: "Bastion Locker",
-    short: "Encrypt and persistently store files in your browser.",
-    specs: ["AES-256-GCM", "INDEXEDDB STORAGE", "ZERO-KNOWLEDGE"]
+    short: "Memory-hard encryption for sensitive assets using Sovereign-V3.",
+    specs: ["ARGON2ID", "AES-256-GCM", "SPLIT-HORIZON"]
   },
   {
-    id: 'rolodex',
-    icon: <Network size={28} className="text-emerald-400" />,
-    title: "Shadow Rolodex",
-    short: "Securely manage sensitive contacts in an encrypted graph.",
-    specs: ["GRAPH DB", "IN-MEMORY", "OPAQUE BLOB"]
+    id: 'sharding',
+    icon: <Share2 size={28} className="text-emerald-400" />,
+    title: "Prime Field Sharing",
+    short: "Cryptographically split secrets into recovery shards.",
+    specs: ["SHAMIR SECRET SHARING", "FINITE FIELD (Fp)", "INFORMATION THEORETIC SECURITY"]
   },
   {
     id: 'neural',
     icon: <Cpu size={28} className="text-violet-400" />,
     title: "Neural Auditor",
-    short: "Run AI security checks offline on your own hardware.",
+    short: "Local WebGPU AI analysis for semantic pattern detection.",
     specs: ["TINYLLAMA 1.1B", "WEBGPU", "AIR-GAPPED LOGIC"]
   }
 ];
 
 const GLOSSARY: Record<string, { title: string, body: string }> = {
-    "PBKDF2-HMAC": {
-        title: "Password-Based Key Derivation Function 2",
-        body: "A cryptographic standard used to prevent brute-force attacks. We run 210,000 iterations of SHA-256/512 hashing on your master password. This makes the derivation computationally expensive, slowing down attackers."
+    "ARGON2ID": {
+        title: "Argon2id Key Derivation",
+        body: "The winner of the Password Hashing Competition (PHC). Unlike older algorithms (PBKDF2/Bcrypt), Argon2id is 'Memory-Hard'. It forces the attacker to use significant RAM (64MB per attempt), neutralizing the advantage of GPU farms and ASICs used by nation-state actors."
+    },
+    "HMAC-SHA512": {
+        title: "HMAC-SHA512 Flux",
+        body: "The Chaos Engine uses SHA-512 (512-bit output) in HMAC mode to generate the entropy stream. This provides 2x the bit-width of standard SHA-256, ensuring sufficient randomness to perform rejection sampling without exhausting the pool."
     },
     "REJECTION SAMPLING": {
         title: "Unbiased Rejection Sampling",
-        body: "Standard modulo arithmetic introduces bias when generating passwords. We implement Rejection Sampling to discard any random bytes that would cause uneven distribution, ensuring every character in your password has a mathematically equal probability of selection."
+        body: "Standard modulo arithmetic (`byte % N`) introduces statistical bias when 256 is not divisible by N. This bias can theoretically reduce password strength. We implement strict Rejection Sampling: if a random byte falls into the biased 'remainder' zone, we discard it and fetch a new byte. This ensures true mathematical uniformity."
     },
-    "STATELESS": {
-        title: "Stateless Architecture",
-        body: "Bastion does not maintain a database connection. Your vault exists only in your device's RAM while open. When you close the tab, the data evaporates completely, leaving only the encrypted blob on your disk."
+    "DOMAIN SEPARATION": {
+        title: "Cryptographic Domain Separation",
+        body: "We modify the hashing inputs based on context. A password generated for 'Google' uses a completely different mathematical salt structure than one for 'Amazon'. This prevents 'Rainbow Table' attacks from working across your vault."
     },
     "AES-256-GCM": {
         title: "Advanced Encryption Standard (GCM)",
-        body: "The gold standard for symmetric encryption. We use Galois/Counter Mode (GCM) with unique random 12-byte IVs for every operation, providing both confidentiality (they can't read it) and integrity (they can't modify it without us knowing)."
+        body: "We use Galois/Counter Mode (GCM) with unique 12-byte IVs for every operation. This provides Authenticated Encryption (AEAD), guaranteeing both confidentiality (secrecy) and integrity (tamper-resistance)."
     },
-    "INDEXEDDB STORAGE": {
-        title: "Encrypted Object Store",
-        body: "Large files are encrypted and stored in the browser's IndexedDB database. This allows you to store gigabytes of encrypted data securely on your device, persisting across sessions without bloating the main vault file."
+    "SPLIT-HORIZON": {
+        title: "Split-Horizon Storage",
+        body: "The decryption key for a file is never stored with the file itself. The key is held in the Vault (Encrypted), while the payload is stored in the Browser Database (Encrypted). An attacker stealing the database gets only random noise without the separate vault key."
     },
-    "ZERO-KNOWLEDGE": {
-        title: "Zero-Knowledge Architecture",
-        body: "A security model where the service provider (us) knows nothing about your data. We do not have your password, your keys, or your unencrypted files. We cannot recover your account if you lose your password."
+    "SHAMIR SECRET SHARING": {
+        title: "Shamir's Secret Sharing",
+        body: "A form of 'Information-Theoretic Security'. We split your master secret into $n$ parts. You need $k$ parts to reconstruct it. With $k-1$ parts, it is mathematically impossible to reconstruct the secret, regardless of computing power."
     },
-    "GRAPH DB": {
-        title: "Graph Database Structure",
-        body: "Instead of a simple list, contacts are stored as nodes with edges representing relationships. This allows for complex querying while keeping the data structure flexible and encrypted as a single blob."
+    "FINITE FIELD (Fp)": {
+        title: "Prime Field Arithmetic",
+        body: "We perform polynomial interpolation over a Finite Field defined by a large prime (secp256k1 order). This prevents geometric attacks and ensures the math holds up against quantum-computer assisted analysis."
     },
-    "IN-MEMORY": {
-        title: "In-Memory Execution",
-        body: "Decrypted data never touches your hard drive. It lives in the Protected RAM of the browser process. If the computer is powered off, the data is instantly lost, preventing cold-boot attacks."
-    },
-    "OPAQUE BLOB": {
-        title: "Opaque Binary Large Object",
-        body: "To the outside world (and the filesystem), your vault looks like a random string of nonsense characters. There is no file structure, no metadata, and no headers visible without the decryption key."
+    "INFORMATION THEORETIC SECURITY": {
+        title: "Information-Theoretic Security",
+        body: "The highest level of security. It means the system cannot be broken even with infinite computing power. Our sharding implementation adheres to this standard."
     },
     "TINYLLAMA 1.1B": {
-        title: "TinyLlama 1.1B Model",
-        body: "A compact Large Language Model with 1.1 billion parameters. We optimized it to run entirely within the web browser using WebAssembly and WebGPU, allowing for AI analysis without sending data to a server."
+        title: "Local LLM Inference",
+        body: "We execute a quantized version of the TinyLlama neural network entirely within your browser's Wasm runtime. This allows for 'smart' security audits without sending a single byte of data to an external server."
     },
     "WEBGPU": {
         title: "Web Graphics Processing Unit",
-        body: "A modern web API that gives the browser direct access to your computer's graphics card. This allows Bastion to perform billions of parallel calculations for AI inference and encryption acceleration locally."
+        body: "A modern browser API allowing direct access to the GPU. Bastion uses this to accelerate the massive matrix multiplications required for AI inference, keeping the application responsive."
     },
     "AIR-GAPPED LOGIC": {
-        title: "Offline-Capable Logic",
-        body: "While Bastion is delivered via the web (HTTPS), the application logic is designed to function without further network requests. You can disconnect your internet after loading the page and the vault will function perfectly."
+        title: "Offline-First Architecture",
+        body: "Bastion is delivered as a Progressive Web App (PWA) but is designed to function with zero network connectivity. Once loaded, you can (and should) disconnect from the internet for maximum security."
     }
 };
 
 const DEEP_DIVES: Record<string, { title: string, subtitle: string, desc: string, technical: string[] }> = {
     "chaos": {
-        title: "Chaos Engine™",
+        title: "Chaos Engine™ V2",
         subtitle: "Deterministic Entropy Generator",
-        desc: "The Chaos Engine removes the need to store passwords entirely. Instead of retrieving a password from a database, it mathematically computes it on-the-fly using your Master Key and the Service Name as inputs. Because the result is deterministic, you get the same password every time without ever saving it.",
-        technical: ["HMAC-SHA512 Flux", "Domain Separated Salts", "Context-Aware Salting"]
+        desc: "The safest way to store a password is to never store it at all. The Chaos Engine computes your password mathematically using your Master Seed and the Service Name as inputs. V2 Upgrades include HMAC-SHA512 for a wider entropy pool and Unbiased Rejection Sampling to eliminate modulo bias attacks.",
+        technical: ["HMAC-SHA512 Flux", "Zero-Bias Sampling", "Stateless Execution"]
     },
     "locker": {
         title: "Bastion Locker",
-        subtitle: "Client-Side Encrypted File System",
-        desc: "Traditional cloud storage uploads your file, then encrypts it. Bastion Locker encrypts the file inside your browser first. The encrypted payload is then stored in the browser's persistent database. We use a unique 256-bit key for every single file, wrapped by your master key.",
-        technical: ["Stream Cipher Chaining", "Split-Horizon Storage", "Integrity Hashing"]
+        subtitle: "Sovereign-V3 Protocol",
+        desc: "We have upgraded our vault encryption to the Sovereign-V3 standard. This utilizes Argon2id with 64MB of memory hardness and 3 passes. This makes brute-forcing your vault on consumer hardware computationally infeasible, and makes cloud-scale GPU cracking significantly more expensive for attackers.",
+        technical: ["Argon2id (m=64MB, t=3)", "AES-256-GCM", "Protocol Versioning"]
     },
-    "rolodex": {
-        title: "Shadow Rolodex",
-        subtitle: "Private Identity Graph",
-        desc: "Your contacts and connections are often more sensitive than your passwords. Shadow Rolodex encrypts this social graph into a single monolithic block. Accessing one contact does not expose the others, thanks to memory partitioning.",
-        technical: ["Serialized JSON Graph", "Node-Level Encryption", "Ephemeral Search Index"]
+    "sharding": {
+        title: "Prime Field Sharing",
+        subtitle: "Threshold Cryptography",
+        desc: "Backups are a security risk. If you write down your password, it can be stolen. Bastion allows you to split your master password into 5 'shards'. You can distribute these shards (e.g., one to a lawyer, one in a safe, one with a spouse). An attacker needs 3 combined shards to recover the key. 2 shards are useless.",
+        technical: ["Lagrange Interpolation", "GF(2^256) Arithmetic", "Hybrid Encryption"]
     },
     "neural": {
         title: "Neural Auditor",
-        subtitle: "Local Large Language Model",
-        desc: "We ported a neural network to run inside Chrome. This AI audits your passwords for semantic weaknesses (like using pet names or dates) that standard entropy checkers miss. It thinks like a hacker, but works for you.",
-        technical: ["ONNX Runtime / TVM", "4-bit Quantization", "Zero Data Egress"]
+        subtitle: "Private Semantic Analysis",
+        desc: "Standard strength checkers just count characters. Bastion's Neural Auditor understands context. It knows that 'P@ssword1!' is weak despite having symbols and numbers. It runs a specialized neural network on your own hardware to find semantic weaknesses without exposing your data.",
+        technical: ["ONNX Runtime", "4-bit Quantization", "Zero Data Egress"]
     }
 };
 
@@ -125,9 +125,9 @@ export const LandingFeatures: React.FC = () => {
       
       {/* Introduction Block */}
       <div className="relative pl-8 border-l-2 border-indigo-500/30">
-         <h2 className="text-2xl font-bold text-white mb-4">Core Value Proposition</h2>
+         <h2 className="text-2xl font-bold text-white mb-4">Architectural Guarantees</h2>
          <p className="text-slate-400 text-lg leading-relaxed max-w-3xl">
-            Bastion is built on a modular, offline-first architecture. We prioritize user sovereignty, ensuring you maintain complete control and ownership of your encrypted data at all times.
+            Bastion Protocol v2.8 introduces <strong>Sovereign-V3</strong>: a strict, memory-hard cryptographic standard designed to resist GPU-accelerated brute force attacks. We do not ask for your trust; we prove our security through transparent, open-source architecture.
          </p>
       </div>
 
@@ -152,7 +152,7 @@ export const LandingFeatures: React.FC = () => {
                     
                     <h3 className="text-xl font-bold text-slate-200 mb-3 group-hover:text-white flex items-center gap-2">
                         {feature.title}
-                        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-slate-500 group-hover:text-indigo-400">INFO</span>
+                        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-slate-500 group-hover:text-indigo-400">V3 SPEC</span>
                     </h3>
                     <p className="text-lg text-slate-400 leading-relaxed mb-6 flex-1">
                         {feature.short}

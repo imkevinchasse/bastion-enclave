@@ -31,7 +31,7 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
               <BrandLogo size={32} className="drop-shadow-lg group-hover:brightness-125 transition-all" />
               <div className="flex flex-col">
                 <span className="font-bold text-lg text-white tracking-tight leading-none group-hover:text-indigo-100 transition-colors">Bastion Enclave</span>
-                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest leading-none mt-1">Protocol v2.6</span>
+                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest leading-none mt-1">Protocol v2.8</span>
               </div>
           </div>
 
@@ -56,6 +56,11 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
                 active={active === 'documents'} 
                 onClick={() => onNavigate('documents')} 
                 label="Research" 
+              />
+              <NavButton 
+                active={active === 'breach'} 
+                onClick={() => onNavigate('breach')} 
+                label="Breach Check" 
               />
           </div>
 
@@ -114,6 +119,13 @@ export const TopNav: React.FC<TopNavProps> = ({ active, onNavigate }) => {
                 icon={<BookOpen size={20} />} 
                 label="Research" 
                 desc="Technical Papers"
+             />
+             <MobileNavButton 
+                active={active === 'breach'} 
+                onClick={() => handleNav('breach')} 
+                icon={<ShieldAlert size={20} />} 
+                label="Breach Check" 
+                desc="Password Analysis"
              />
              
              <div className="h-px bg-white/10 my-4"></div>

@@ -1,295 +1,303 @@
 
-import { CreateMLCEngine, MLCEngine } from "@mlc-ai/web-llm";
 import { AuditResult, SecurityLevel, PhishingResult } from "../types";
 
-// We use the Q4 quantized version of TinyLlama for browser efficiency
-const MODEL_ID = "TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC";
+// Note: We use specific CDN URLs with @vite-ignore to prevent the bundler from 
+// failing on Node.js dependencies (buffer, long) found in the local node_modules.
 
-let engine: MLCEngine | null = null;
+// --- CONFIGURATION ---
 
-export const isModelReady = (): boolean => {
-    return engine !== null;
-};
+// Layer 2 Model: MiniLM-L12 (Higher precision embeddings than L6)
+const EMBEDDING_MODEL = "Xenova/all-MiniLM-L12-v2";
 
-export const initLLM = async (
-  onProgress: (text: string) => void
-): Promise<void> => {
-  if (engine) return;
+// Layer 3 Model: TinyLlama (Generative Reasoner)
+const LLM_MODEL_ID = "TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC";
 
-  // 1. Check for WebGPU support
-  // Fix: Cast navigator to any to resolve missing 'gpu' property in standard types
-  if (!(navigator as any).gpu) {
-    throw new Error("WebGPU is not supported in this browser. Please use Chrome 113+, Edge, or enable WebGPU flags.");
-  }
+// --- STATE MANAGEMENT ---
 
-  try {
-    engine = await CreateMLCEngine(MODEL_ID, {
-      initProgressCallback: (report) => {
-        onProgress(report.text);
-      },
-    });
-  } catch (err: any) {
-    console.error("Failed to load TinyLlama", err);
-    // Propagate a clean error message
-    throw new Error(err.message || "Failed to initialize Neural Engine");
-  }
-};
-
-/**
- * DEEP CREDENTIAL AUDIT
- * Analyzes password in the context of the service and username.
- */
-export const runCredentialAudit = async (password: string, service?: string, username?: string): Promise<AuditResult> => {
-  if (!engine) {
-    throw new Error("Engine not initialized");
-  }
-
-  const contextStr = (service || username) 
-    ? `\nContext:\nService: ${service || 'Unknown'}\nUsername: ${username || 'Unknown'}`
-    : '';
-
-  const prompt = `Analyze security of this password.${contextStr}
-Password: "${password}"
-
-Check for:
-1. Complexity (Length, charset)
-2. Predictability (Common patterns)
-3. Contextual weakness (Does password contain parts of Service or Username?)
-
-Response format:
-Score: [0-100]
-Level: [CRITICAL/LOW/MEDIUM/HIGH]
-Analysis: [Short summary, mention if context leaked]
-Suggestions: [Tip 1, Tip 2]`;
-
-  try {
-    const response = await engine.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 300,
-      temperature: 0.1, // Near-zero temp for deterministic output
-    });
-
-    const content = response.choices[0].message.content || "";
-    return parseAuditOutput(content);
-
-  } catch (err) {
-    console.error("Local Audit Failed", err);
-    return {
-      score: 0,
-      level: SecurityLevel.LOW,
-      suggestions: ["Neural engine output error.", "Try simplifying the password or retrying."],
-      analysis: "The local AI failed to run the inference."
-    };
-  }
-};
-
-/**
- * PHISHING & SOCIAL ENGINEERING DETECTION
- * Analyzes text for manipulative patterns using Gain/Loss framing.
- */
-export const runPhishingAnalysis = async (text: string): Promise<PhishingResult> => {
-    if (!engine) throw new Error("Engine not initialized");
-
-    const truncated = text.substring(0, 2000);
-
-    // Advanced Chain-of-Thought Prompt for TinyLlama
-    const prompt = `Role: Security Analyst.
-Task: Classify this email based on INTENT and CONSEQUENCE.
-
-Input Text:
-"${truncated}"
-
-ANALYSIS RULES:
-1.  **GAIN FRAME (Marketing)**:
-    *   Promise: "Save money", "Get a discount", "Upgrade now".
-    *   Threat: "Offer expires", "Price goes up".
-    *   VERDICT: SAFE.
-
-2.  **LOSS FRAME (Phishing/Extortion)**:
-    *   Promise: "Avoid deletion", "Restore access", "Stop legal action".
-    *   Threat: "Account deleted", "Funds seized", "Police warrant", "Payment failed".
-    *   VERDICT: DANGEROUS.
-
-3.  **SPECIFIC TRIGGERS**:
-    *   "Subscription ID" + "Payment Failed" = DANGEROUS (Fake Invoice Scam).
-    *   "US Customs" + "Consignment" = DANGEROUS (Government Impersonation).
-    *   "% OFF" + "Ends Today" = SAFE (Standard Marketing).
-
-OUTPUT FORMAT:
-Risk: [SAFE / SUSPICIOUS / DANGEROUS]
-Confidence: [0-100]
-Indicators: [Trigger 1, Trigger 2]
-Analysis: [Explain if it is a Gain Frame (Sale) or Loss Frame (Threat)]`;
-
-    try {
-        const response = await engine.chat.completions.create({
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 250,
-            temperature: 0.1, // Low temp for rule adherence
-        });
-
-        const content = response.choices[0].message.content || "";
-        return parsePhishingOutput(content);
-
-    } catch (err) {
-        return {
-            riskLevel: 'SUSPICIOUS',
-            confidence: 0,
-            indicators: ["Engine Error"],
-            analysis: "Could not complete analysis due to internal error."
-        };
+interface ServiceState {
+    llm: any | null; 
+    embedder: any | null; 
+    status: 'idle' | 'loading' | 'ready' | 'error';
+    progress: string;
+    anchors?: {
+        threat: number[][];
+        safe: number[][];
     }
-};
-
-/**
- * NOTE ASSISTANT
- * Performs operations on note content: Summarize, Fix Grammar, Extract Todos.
- */
-export const runTextTransformation = async (text: string, mode: 'summarize' | 'grammar' | 'todo'): Promise<string> => {
-    if (!engine) throw new Error("Neural Engine not active. Please initialize it in the Auditor tab first.");
-
-    const truncated = text.substring(0, 2000); // Prevent context overflow
-    
-    let sysPrompt = "";
-    if (mode === 'summarize') sysPrompt = "Summarize the following text in 3 concise bullet points. Preserve key details.";
-    if (mode === 'grammar') sysPrompt = "Fix grammar, spelling, and punctuation in the following text. Do not change the meaning. Return ONLY the corrected text.";
-    if (mode === 'todo') sysPrompt = "Extract a list of actionable tasks from the text. Format them as a Markdown checklist (e.g. - [ ] Task). If none, say 'No tasks found'.";
-
-    try {
-        const response = await engine.chat.completions.create({
-            messages: [
-                { role: "system", content: "You are a helpful secure assistant." },
-                { role: "user", content: `${sysPrompt}\n\nINPUT:\n${truncated}` }
-            ],
-            max_tokens: 500,
-            temperature: 0.3,
-        });
-
-        return response.choices[0].message.content || "AI returned no output.";
-    } catch (err: any) {
-        throw new Error(err.message || "AI Transformation failed");
-    }
-};
-
-/**
- * VAULT SMART SEARCH
- * Expands a search query into related terms (Synonyms/Categories).
- */
-export const expandSearchQuery = async (query: string): Promise<string[]> => {
-    if (!engine) return []; // Fail gracefully if not loaded
-
-    try {
-        const response = await engine.chat.completions.create({
-            messages: [
-                { role: "user", content: `List 5 common synonyms, related service names, or categories for "${query}". Return ONLY a comma-separated list. Example: "streaming, netflix, hulu, video, movies"` }
-            ],
-            max_tokens: 60,
-            temperature: 0.5,
-        });
-
-        const raw = response.choices[0].message.content || "";
-        // Clean up the output
-        return raw.split(',')
-            .map(s => s.trim().replace(/\./g, ''))
-            .filter(s => s.length > 2);
-    } catch (err) {
-        return [];
-    }
-};
-
-/**
- * Robustly parses model output for Credential Audit.
- */
-function parseAuditOutput(text: string): AuditResult {
-    // Regex scraping for Key: Value patterns
-    const scoreMatch = text.match(/(?:score|rating)[\s:*=]+(\d+)/i);
-    const levelMatch = text.match(/(?:level|risk|classification)[\s:*=]+(CRITICAL|HIGH|MEDIUM|LOW)/i);
-    const analysisMatch = text.match(/(?:analysis|summary)[\s:*=]+([^\n]+)/i);
-    
-    const suggestions: string[] = [];
-    const lines = text.split('\n');
-    for (const line of lines) {
-        if (line.trim().match(/^[-*•]\s+/)) {
-            suggestions.push(line.replace(/^[-*•]\s+/, '').trim());
-        }
-    }
-
-    let score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
-    let level = levelMatch ? (levelMatch[1].toUpperCase() as SecurityLevel) : SecurityLevel.LOW;
-    let analysis = analysisMatch ? analysisMatch[1].trim() : "Analysis completed.";
-
-    // Fallbacks
-    if (!levelMatch && score > 0) {
-        if (score < 40) level = SecurityLevel.CRITICAL;
-        else if (score < 70) level = SecurityLevel.LOW;
-        else if (score < 90) level = SecurityLevel.MEDIUM;
-        else level = SecurityLevel.HIGH;
-    }
-
-    if (!analysisMatch && text.length > 10) {
-        analysis = text.replace(/\n/g, ' ').substring(0, 150) + "...";
-    }
-
-    if (suggestions.length === 0) {
-        suggestions.push("Review password complexity.");
-        if (text.toLowerCase().includes('weak')) suggestions.push("Password appears weak.");
-    }
-
-    return {
-        score: Math.min(100, Math.max(0, score)),
-        level,
-        analysis,
-        suggestions: suggestions.slice(0, 3)
-    };
 }
 
-/**
- * Robustly parses model output for Phishing Analysis.
- */
-function parsePhishingOutput(text: string): PhishingResult {
-    const riskMatch = text.match(/(?:risk|threat)[\s:*=]+(SAFE|SUSPICIOUS|DANGEROUS|HIGH|CRITICAL|LOW)/i);
-    const confMatch = text.match(/(?:confidence|prob)[\s:*=]+(\d+)/i);
-    const analysisMatch = text.match(/(?:analysis|summary|reasoning)[\s:*=]+([^\n]+)/i);
+let state: ServiceState = {
+    llm: null,
+    embedder: null,
+    status: 'idle',
+    progress: ''
+};
+
+// --- LAYER 1: DETERMINISTIC SIGNAL VECTOR ---
+
+const PATTERNS = {
+    urgency: /\b(immediately|urgent|act now|suspended|24 hours|expired|unauthorized|breach|lock|verify|deleted|terminate|deadline)\b/i,
+    authority: /\b(admin|support|security team|ceo|hr department|irs|police|legal|compliance|executive)\b/i,
+    credential: /\b(password|login|verify account|click here|secure link|update details|billing|invoice|sign in|validation)\b/i,
+    financial: /\b(payment|invoice|overdue|refund|gift card|bitcoin|btc|transfer|wire|bank|deposit)\b/i,
+    pressure: /\b(ignore this|don't tell|secret|confidential|risk|lawsuit|warrant)\b/i
+};
+
+interface SignalVector {
+    urgency: boolean;
+    authority: boolean;
+    credential: boolean;
+    financial: boolean;
+    pressure: boolean;
+    linkCount: number;
+    capsRatio: number;
+    score: number; // 0-100
+}
+
+const normalizeText = (text: string) => text.toLowerCase().replace(/\s+/g, ' ').trim();
+
+const extractSignalVector = (text: string): SignalVector => {
+    const norm = normalizeText(text);
     
-    const indicators: string[] = [];
-    
-    // Improved Indicator Extraction
-    if (text.includes("Indicators:")) {
-        const indSection = text.split("Indicators:")[1].split("\n")[0];
-        indSection.split(/,|;/).forEach(i => {
-            const clean = i.replace(/[\[\]]/g, '').trim();
-            if (clean && clean.length > 3) indicators.push(clean);
+    const signals = {
+        urgency: PATTERNS.urgency.test(norm),
+        authority: PATTERNS.authority.test(norm),
+        credential: PATTERNS.credential.test(norm),
+        financial: PATTERNS.financial.test(norm),
+        pressure: PATTERNS.pressure.test(norm),
+        linkCount: (text.match(/http[s]?:\/\//g) || []).length,
+        capsRatio: (text.replace(/[^A-Z]/g, "").length) / (text.length || 1),
+        score: 0
+    };
+
+    // Deterministic Scoring Rule
+    let rawScore = 0;
+    if (signals.urgency) rawScore += 25;
+    if (signals.authority) rawScore += 15;
+    if (signals.credential) rawScore += 30;
+    if (signals.financial) rawScore += 15;
+    if (signals.pressure) rawScore += 15;
+    if (signals.linkCount > 0) rawScore += 10;
+    if (signals.capsRatio > 0.3) rawScore += 10;
+
+    signals.score = Math.min(100, rawScore);
+    return signals;
+};
+
+// --- LAYER 2: SEMANTIC ANCHORS ---
+
+const ANCHOR_TEXTS = {
+    THREAT: [
+        "urgent action required account suspended immediately",
+        "verify your password and identity to prevent lockout",
+        "unauthorized login attempt detected click to secure",
+        "payment failed update billing information now",
+        "transfer funds to this bitcoin wallet address",
+        "executive request do this silently and quickly"
+    ],
+    SAFE: [
+        "meeting agenda for next week team sync",
+        "hey can we grab lunch tomorrow",
+        "project status update report attached",
+        "shipping confirmation for your amazon order",
+        "happy birthday have a great day",
+        "recipe for chocolate chip cookies"
+    ]
+};
+
+// Math Utils
+const dotProduct = (a: number[], b: number[]) => a.reduce((sum, v, i) => sum + v * b[i], 0);
+const magnitude = (v: number[]) => Math.sqrt(v.reduce((sum, x) => sum + x * x, 0));
+const cosineSimilarity = (a: number[], b: number[]) => dotProduct(a, b) / (magnitude(a) * magnitude(b));
+
+// --- INITIALIZATION ---
+
+export const isModelReady = (): boolean => state.status === 'ready';
+
+export const initLLM = async (onProgress: (text: string) => void): Promise<void> => {
+    if (state.status === 'ready') return;
+
+    try {
+        state.status = 'loading';
+        
+        onProgress("Loading Neural Engines (CDN)...");
+        
+        // 1. Dynamic Imports with @vite-ignore
+        // This ensures Vite does NOT try to bundle these (which fails on 'buffer'/'long').
+        // The browser will fetch them directly from the CDN.
+        const transformersMod = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2");
+        const webLlmMod = await import(/* @vite-ignore */ "https://esm.sh/@mlc-ai/web-llm@0.2.72");
+        
+        const { pipeline, env } = transformersMod;
+        const { CreateMLCEngine } = webLlmMod;
+        
+        // Configure Transformers
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
+
+        // 2. Load Embedder (Layer 2)
+        onProgress("Loading Semantic Encoder (MiniLM-L12)...");
+        state.embedder = await pipeline('feature-extraction', EMBEDDING_MODEL, {
+            quantized: true,
         });
-    }
 
-    let riskLevel: 'SAFE' | 'SUSPICIOUS' | 'DANGEROUS' = 'SUSPICIOUS';
-    
-    if (riskMatch) {
-        const rawRisk = riskMatch[1].toUpperCase();
-        if (rawRisk === 'SAFE' || rawRisk === 'LOW') riskLevel = 'SAFE';
-        else if (rawRisk === 'DANGEROUS' || rawRisk === 'HIGH' || rawRisk === 'CRITICAL') riskLevel = 'DANGEROUS';
-        else riskLevel = 'SUSPICIOUS';
-    } else {
-        // Semantic Fallback
-        const lower = text.toLowerCase();
-        if (lower.includes('risk: safe') || lower.includes('verdict: safe')) riskLevel = 'SAFE';
-        else if (lower.includes('risk: dangerous') || lower.includes('verdict: dangerous')) riskLevel = 'DANGEROUS';
-    }
+        // 3. Pre-compute Anchors (Optimization)
+        onProgress("Calibrating Threat Vectors...");
+        const threatEmbeds: number[][] = [];
+        const safeEmbeds: number[][] = [];
 
-    // Safety Override: Double-check logic for known marketing patterns vs threats
-    if (riskLevel === 'DANGEROUS') {
-        const lower = text.toLowerCase();
-        // If it says dangerous but reasoning mentions "discount" or "sale" exclusively, it might be a false positive
-        if (lower.includes('discount') && lower.includes('sale') && !lower.includes('account') && !lower.includes('payment')) {
-             // Downgrade to Suspicious to be safe, but likely Safe
-             // riskLevel = 'SAFE'; // (Commented out: Better safe than sorry, let user decide if ambiguous)
+        for (const text of ANCHOR_TEXTS.THREAT) {
+            const out = await state.embedder(text, { pooling: 'mean', normalize: true });
+            threatEmbeds.push(Array.from(out.data));
         }
+        for (const text of ANCHOR_TEXTS.SAFE) {
+            const out = await state.embedder(text, { pooling: 'mean', normalize: true });
+            safeEmbeds.push(Array.from(out.data));
+        }
+        state.anchors = { threat: threatEmbeds, safe: safeEmbeds };
+
+        // 4. Load Reasoner (Layer 3)
+        onProgress("Initializing Neural Reasoner (TinyLlama)...");
+        if (!(navigator as any).gpu) throw new Error("WebGPU not supported on this device.");
+        
+        state.llm = await CreateMLCEngine(LLM_MODEL_ID, {
+            initProgressCallback: (report: any) => onProgress(report.text)
+        });
+
+        state.status = 'ready';
+        onProgress("Hybrid Intelligence Active");
+
+    } catch (e: any) {
+        state.status = 'error';
+        console.error("AI Init Failed:", e);
+        throw new Error(e.message || "Failed to initialize AI. Check network or WebGPU.");
+    }
+};
+
+// --- PUBLIC API ---
+
+export const runPhishingAnalysis = async (text: string): Promise<PhishingResult> => {
+    if (state.status !== 'ready' || !state.embedder || !state.llm || !state.anchors) throw new Error("AI Engine not ready");
+
+    // --- STEP 1: Signal Extraction (Heuristic) ---
+    const signals = extractSignalVector(text);
+    const activeSignals = Object.entries(signals)
+        .filter(([k, v]) => v === true && k !== 'score')
+        .map(([k]) => k.toUpperCase());
+
+    // --- STEP 2: Semantic Classification (Embedding) ---
+    const output = await state.embedder(text, { pooling: 'mean', normalize: true });
+    const inputVec = Array.from(output.data) as number[];
+
+    // Compute max similarity to known threats vs safe anchors
+    const threatSim = Math.max(...state.anchors.threat.map(anchor => cosineSimilarity(inputVec, anchor)));
+    const safeSim = Math.max(...state.anchors.safe.map(anchor => cosineSimilarity(inputVec, anchor)));
+    
+    // Semantic Score
+    let semanticRisk = 0;
+    if (threatSim > safeSim) {
+        semanticRisk = (threatSim - safeSim) * 100 * 2; // Amplify difference
+    } else {
+        semanticRisk = 0;
+    }
+    semanticRisk = Math.min(100, Math.max(0, semanticRisk));
+
+    // --- HYBRID SCORING ---
+    const hybridScore = (signals.score * 0.4) + (semanticRisk * 0.6);
+    
+    let riskLevel: 'SAFE' | 'SUSPICIOUS' | 'DANGEROUS' = 'SAFE';
+    if (hybridScore > 65) riskLevel = 'DANGEROUS';
+    else if (hybridScore > 35) riskLevel = 'SUSPICIOUS';
+
+    // --- STEP 3: Neural Explanation (Generative) ---
+    const systemPrompt = `You are a security analyst.
+Input Text: "${text.substring(0, 200)}..."
+Detected Signals: ${activeSignals.join(", ") || "None"}.
+Semantic Match: ${threatSim.toFixed(2)} (Threat) vs ${safeSim.toFixed(2)} (Safe).
+Final Verdict: ${riskLevel}.
+
+Task: Explain strictly why this is ${riskLevel} in one sentence. Cite specific psychological triggers if present.`;
+
+    let analysis = "";
+    try {
+        const response = await state.llm.chat.completions.create({
+            messages: [
+                { role: "system", content: "Be concise and factual." },
+                { role: "user", content: systemPrompt }
+            ],
+            max_tokens: 80,
+            temperature: 0.1, // High determinism
+        });
+        analysis = response.choices[0].message.content || "Analysis failed.";
+    } catch (e) {
+        analysis = `Automated Analysis: Detected ${activeSignals.length} risk signals with ${Math.round(hybridScore)}% confidence.`;
     }
 
     return {
         riskLevel,
-        confidence: confMatch ? parseInt(confMatch[1], 10) : 85,
-        indicators: indicators.length > 0 ? indicators : ["Content Analysis"],
-        analysis: analysisMatch ? analysisMatch[1].trim() : text.substring(0, 150).replace(/\n/g, ' ') + "..."
+        confidence: Math.round(hybridScore),
+        indicators: activeSignals.length > 0 ? activeSignals : ["NO_OBVIOUS_TRIGGERS"],
+        analysis: analysis.replace(/"/g, '').trim()
     };
-}
+};
+
+export const runCredentialAudit = async (password: string, service?: string, username?: string): Promise<AuditResult> => {
+    if (state.status !== 'ready' || !state.llm) throw new Error("AI Engine not ready");
+
+    // Heuristics for Password
+    const hasContext = service && password.toLowerCase().includes(service.toLowerCase());
+    const lenScore = Math.min(100, password.length * 4);
+    const diversityScore = (/[A-Z]/.test(password) ? 20 : 0) + 
+                           (/[0-9]/.test(password) ? 20 : 0) + 
+                           (/[^A-Za-z0-9]/.test(password) ? 30 : 0);
+    
+    let totalScore = Math.min(100, lenScore + diversityScore);
+    if (hasContext) totalScore = Math.max(0, totalScore - 50); // Huge penalty for context leak
+
+    let level: SecurityLevel = SecurityLevel.LOW;
+    if (totalScore > 80) level = SecurityLevel.HIGH;
+    else if (totalScore > 50) level = SecurityLevel.MEDIUM;
+    else if (totalScore <= 20) level = SecurityLevel.CRITICAL;
+
+    // Reasoner
+    const prompt = `Password Score: ${totalScore}/100.
+Context Leak: ${hasContext ? "YES" : "NO"}.
+Task: Give 1 specific advice to improve this password. Be brief.`;
+
+    const response = await state.llm.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 60,
+        temperature: 0.2,
+    });
+
+    return {
+        score: totalScore,
+        level,
+        analysis: response.choices[0].message.content || "Use a longer, random password.",
+        suggestions: hasContext ? ["Remove service name from password"] : ["Increase length", "Use symbols"]
+    };
+};
+
+export const expandSearchQuery = async (query: string): Promise<string[]> => {
+    if (!state.llm) return [];
+    try {
+        const response = await state.llm.chat.completions.create({
+            messages: [{ role: "user", content: `List 3 synonyms for "${query}" as comma-separated words:` }],
+            max_tokens: 50,
+        });
+        return (response.choices[0].message.content || "").split(',').map((s: string) => s.trim()).slice(0, 5);
+    } catch { return []; }
+};
+
+export const runTextTransformation = async (text: string, mode: 'summarize' | 'grammar' | 'todo'): Promise<string> => {
+    if (!state.llm) throw new Error("Engine not ready");
+    const prompts = {
+        summarize: "Summarize this:",
+        grammar: "Fix grammar:",
+        todo: "Extract tasks:"
+    };
+    const response = await state.llm.chat.completions.create({
+        messages: [{ role: "user", content: `${prompts[mode]}\n${text.substring(0, 1000)}` }],
+        max_tokens: 300,
+    });
+    return response.choices[0].message.content || "";
+};

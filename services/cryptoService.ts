@@ -1,13 +1,23 @@
 
 import { VaultState, Resonance, VaultConfig } from "../types";
+import { argon2id } from 'hash-wasm';
 
-const CURRENT_ITERATIONS = 210_000;
-const LEGACY_ITERATIONS = 100_000; // Fallback for older vaults
-const DIGEST = "SHA-512";
+// PBKDF2 Constants (Legacy Support)
+const PBKDF2_V2_ITERATIONS = 210_000;
+const PBKDF2_V1_ITERATIONS = 100_000;
+const PBKDF2_DIGEST = "SHA-512"; // Used for Chaos Generator (Flux)
+
+// Argon2id Constants (Current V3 Standard)
+const ARGON_MEM_KB = 65536; // 64 MB
+const ARGON_ITERATIONS = 3;
+const ARGON_PARALLELISM = 1;
+const ARGON_HASH_LEN = 32; // 256 bits
+
 const MAGIC_BYTES = new Uint8Array([0x42, 0x41, 0x53, 0x54, 0x49, 0x4f, 0x4e, 0x31]); // "BASTION1"
 
-// Protocol Headers for Storage Migration
-const PROTOCOL_HEADER = new Uint8Array([0x42, 0x53, 0x54, 0x4E, 0x02]); // "BSTN" + Version 2 (Current)
+// Protocol Headers
+const HEADER_V2 = new Uint8Array([0x42, 0x53, 0x54, 0x4E, 0x02]); // "BSTN" + 0x02 (PBKDF2)
+const HEADER_V3 = new Uint8Array([0x42, 0x53, 0x54, 0x4E, 0x03]); // "BSTN" + 0x03 (Argon2id)
 
 const GLYPHS = {
   ALPHA: "abcdefghijklmnopqrstuvwxyz",
@@ -61,9 +71,13 @@ export class ChaosLock {
   }
 
   static hex2buf(hex: string): Uint8Array {
-    const out = new Uint8Array(hex.length / 2);
+    const clean = hex.trim();
+    if (clean.length % 2 !== 0) throw new Error("Invalid hex string length");
+    if (!/^[0-9a-fA-F]+$/.test(clean)) throw new Error("Invalid hex characters detected");
+    
+    const out = new Uint8Array(clean.length / 2);
     for (let i = 0; i < out.length; i++) {
-      out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+      out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
     }
     return out;
   }
@@ -88,10 +102,34 @@ export class ChaosLock {
   }
 
   /**
-   * Derives a key using the specific algorithm parameters.
-   * Allows supporting multiple "eras" of the software.
+   * V3: Argon2id Key Derivation
+   * Memory-Hard, GPU Resistant.
    */
-  private static async deriveKey(password: string, salt: Uint8Array, useDomainSeparation: boolean = true, iterations: number = CURRENT_ITERATIONS): Promise<CryptoKey> {
+  private static async deriveKeyArgon2id(password: string, salt: Uint8Array): Promise<CryptoKey> {
+    const derivedBytes = await argon2id({
+      password,
+      salt,
+      parallelism: ARGON_PARALLELISM,
+      iterations: ARGON_ITERATIONS,
+      memorySize: ARGON_MEM_KB,
+      hashLength: ARGON_HASH_LEN,
+      outputType: 'binary'
+    });
+
+    return cryptoAPI.subtle.importKey(
+      "raw",
+      derivedBytes,
+      "AES-GCM",
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  /**
+   * V1/V2: PBKDF2 Key Derivation (Legacy)
+   * CPU-bound, susceptible to GPU acceleration.
+   */
+  private static async deriveKeyPBKDF2(password: string, salt: Uint8Array, useDomainSeparation: boolean = true, iterations: number = PBKDF2_V2_ITERATIONS): Promise<CryptoKey> {
     let finalSalt = salt;
     
     if (useDomainSeparation) {
@@ -125,8 +163,8 @@ export class ChaosLock {
     const salt = cryptoAPI.getRandomValues(new Uint8Array(16));
     const iv = cryptoAPI.getRandomValues(new Uint8Array(12));
     
-    // Always encrypt using the Latest Standard (Domain Separation + High Iterations)
-    const key = await this.deriveKey(password, salt, true, CURRENT_ITERATIONS);
+    // Always use V3 (Argon2id) for new encryptions
+    const key = await this.deriveKeyArgon2id(password, salt);
 
     const encrypted = await cryptoAPI.subtle.encrypt(
       { name: "AES-GCM", iv },
@@ -134,20 +172,21 @@ export class ChaosLock {
       toArrayBuffer(data)
     );
 
-    // V2 Format: [HEADER: 5] + [SALT: 16] + [IV: 12] + [CIPHER]
-    return this.concat(PROTOCOL_HEADER, salt, iv, new Uint8Array(encrypted));
+    // V3 Format: [HEADER_V3: 5] + [SALT: 16] + [IV: 12] + [CIPHER]
+    return this.concat(HEADER_V3, salt, iv, new Uint8Array(encrypted));
   }
 
-  static async decryptBinary(blob: Uint8Array, password: string): Promise<Uint8Array> {
-    // 1. Check for Protocol Header (V2)
-    // Header is 5 bytes: 'B', 'S', 'T', 'N', 0x02
+  static async decryptBinary(blob: Uint8Array, password: string): Promise<{ data: Uint8Array, version: number }> {
+    // 1. Parse Header
     let offset = 0;
-    let isV2 = false;
+    let version = 1; // Default to legacy
 
-    if (blob.length > 5 && 
-        blob[0] === 0x42 && blob[1] === 0x53 && blob[2] === 0x54 && blob[3] === 0x4E && blob[4] === 0x02) {
-        isV2 = true;
-        offset = 5;
+    if (blob.length > 5) {
+        if (blob[0] === 0x42 && blob[1] === 0x53 && blob[2] === 0x54 && blob[3] === 0x4E) {
+            if (blob[4] === 0x03) version = 3;
+            else if (blob[4] === 0x02) version = 2;
+            offset = 5;
+        }
     }
 
     // Extraction
@@ -155,140 +194,268 @@ export class ChaosLock {
     const iv = blob.slice(offset + 16, offset + 28);
     const cipher = blob.slice(offset + 28);
 
-    // MIGRATION STRATEGY: Try algorithms in order of likelihood
+    // MIGRATION STRATEGY
     
-    // Attempt 1: If V2 header, use V2 params. If no header, assume Legacy V1 (Domain separated, 210k)
-    // NOTE: Previous versions used 210k + Domain Separation as default, but lacked header.
+    // Attempt 1: Based on Header Version
     try {
-        const key = await this.deriveKey(password, salt, true, CURRENT_ITERATIONS);
+        let key: CryptoKey;
+        if (version === 3) {
+            key = await this.deriveKeyArgon2id(password, salt);
+        } else if (version === 2) {
+            key = await this.deriveKeyPBKDF2(password, salt, true, PBKDF2_V2_ITERATIONS);
+        } else {
+            // Assume Legacy V1 (Domain separated, 210k) - Default for version 1
+            key = await this.deriveKeyPBKDF2(password, salt, true, PBKDF2_V2_ITERATIONS);
+        }
+
         const decrypted = await cryptoAPI.subtle.decrypt(
             { name: "AES-GCM", iv },
             key,
             toArrayBuffer(cipher)
         );
-        return new Uint8Array(decrypted);
+        return { data: new Uint8Array(decrypted), version };
     } catch (e) {
-        // Fallthrough
+        // Fallthrough if explicit version fails (corruption or wrong password)
+        // or if we assumed V1 but it was actually V0
     }
 
-    // Attempt 2: Legacy (No Domain Separation, High Iterations) - Possible intermediate version
+    // Attempt 2: Fallback for Ambiguous Legacy Formats
     try {
-        const key = await this.deriveKey(password, salt, false, CURRENT_ITERATIONS);
+        const key = await this.deriveKeyPBKDF2(password, salt, false, PBKDF2_V2_ITERATIONS);
         const decrypted = await cryptoAPI.subtle.decrypt(
             { name: "AES-GCM", iv },
             key,
             toArrayBuffer(cipher)
         );
         console.log("Migrating from Legacy Format (No Domain Sep)");
-        return new Uint8Array(decrypted);
-    } catch (e) {
-        // Fallthrough
-    }
+        return { data: new Uint8Array(decrypted), version: 0 };
+    } catch (e) {}
 
-    // Attempt 3: Ancient Legacy (No Domain Separation, Low Iterations)
     try {
-        const key = await this.deriveKey(password, salt, false, LEGACY_ITERATIONS);
+        const key = await this.deriveKeyPBKDF2(password, salt, false, PBKDF2_V1_ITERATIONS);
         const decrypted = await cryptoAPI.subtle.decrypt(
             { name: "AES-GCM", iv },
             key,
             toArrayBuffer(cipher)
         );
         console.log("Migrating from Ancient Format (100k Iterations)");
-        return new Uint8Array(decrypted);
-    } catch (e) {
-        // Fallthrough
-    }
+        return { data: new Uint8Array(decrypted), version: 0 };
+    } catch (e) {}
 
     throw new Error("Decryption failed. Invalid password or incompatible vault version.");
   }
 
   static async pack(state: VaultState, password: string): Promise<string> {
-    // Pack always produces the latest format
     const encrypted = await this.encryptBinary(this.enc(JSON.stringify(state)), password);
     return btoa(String.fromCharCode(...encrypted));
   }
 
-  static async unpack(blob: string, password: string): Promise<VaultState> {
+  static async unpack(blob: string, password: string): Promise<{ state: VaultState, version: number }> {
     const bytes = Uint8Array.from(atob(blob), c => c.charCodeAt(0));
-    const decrypted = await this.decryptBinary(bytes, password);
-    return JSON.parse(this.dec(decrypted));
+    const { data, version } = await this.decryptBinary(bytes, password);
+    const state = JSON.parse(this.dec(data));
+    return { state, version };
   }
 }
 
-/* ===================== SECRET SHARER (SSS) ===================== */
-const LOG = new Uint8Array(256);
-const EXP = new Uint8Array(256);
-(function initGF256() {
-  let x = 1;
-  for (let i = 0; i < 255; i++) {
-    EXP[i] = x;
-    LOG[x] = i;
-    x <<= 1;
-    if (x & 0x100) x ^= 0x11B; 
-  }
-})();
-export class SecretSharer {
-    static split(secretStr: string, shares: number, threshold: number): string[] {
-        const secret = ChaosLock.enc(secretStr);
-        const len = secret.length;
-        const coeffs = new Uint8Array(len * (threshold - 1));
-        crypto.getRandomValues(coeffs);
-        const shards: string[] = [];
-        const id = ChaosLock.buf2hex(crypto.getRandomValues(new Uint8Array(4)));
-        for (let x = 1; x <= shares; x++) {
-          const shareData = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            let y = secret[i];
-            for (let j = 0; j < threshold - 1; j++) {
-              const a = coeffs[i * (threshold - 1) + j];
-              const term = SecretSharer['mul'](a, SecretSharer['pow'](x, j + 1));
-              y = y ^ term;
-            }
-            shareData[i] = y;
-          }
-          shards.push(`bst_s1_${id}_${threshold}_${x}_${ChaosLock.buf2hex(shareData)}`);
+/* ===================== SECRET SHARER V2 (BIGINT PRIME FIELD) ===================== */
+
+// secp256k1 Field Prime: 2^256 - 2^32 - 977
+const PRIME = 2n ** 256n - 2n ** 32n - 977n;
+
+// BigInt Utilities for Modular Arithmetic
+const BN = {
+    add: (a: bigint, b: bigint) => (a + b) % PRIME,
+    sub: (a: bigint, b: bigint) => {
+        const res = (a - b) % PRIME;
+        return res < 0n ? res + PRIME : res;
+    },
+    mul: (a: bigint, b: bigint) => (a * b) % PRIME,
+    // Modular Exponentiation
+    pow: (base: bigint, exp: bigint) => {
+        let res = 1n;
+        base = base % PRIME;
+        while (exp > 0n) {
+            if (exp % 2n === 1n) res = (res * base) % PRIME;
+            base = (base * base) % PRIME;
+            exp /= 2n;
         }
+        return res;
+    },
+    // Modular Inverse using Fermat's Little Theorem (Prime Field)
+    inv: (n: bigint) => BN.pow(n, PRIME - 2n),
+    
+    // Secure Random BigInt < Limit
+    random: (limit: bigint = PRIME): bigint => {
+        const bits = limit.toString(2).length;
+        const bytes = Math.ceil(bits / 8);
+        const buf = new Uint8Array(bytes);
+        let val = 0n;
+        do {
+            crypto.getRandomValues(buf);
+            val = 0n;
+            for (const b of buf) {
+                val = (val << 8n) + BigInt(b);
+            }
+            // Mask excess bits if any (rough optimization)
+        } while (val >= limit || val === 0n);
+        return val;
+    }
+};
+
+export class SecretSharer {
+    
+    /**
+     * Splits a secret string using Shamir's Secret Sharing over the secp256k1 Prime Field.
+     * Uses a Hybrid Approach:
+     * 1. Generates a random 256-bit session key (K).
+     * 2. Encrypts the arbitrary-length secret (S) with K.
+     * 3. Splits K into shards (x, y).
+     * 4. Bundles (x, y) + Encrypted(S) into the final shard string.
+     */
+    static async split(secretStr: string, shares: number, threshold: number): Promise<string[]> {
+        // 1. Generate Session Key (K) - 32 bytes
+        const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+        
+        // 2. Encrypt the actual Secret with K
+        // Using AES-GCM with a random IV
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const key = await crypto.subtle.importKey("raw", sessionKeyBytes, "AES-GCM", false, ["encrypt"]);
+        const encryptedSecret = await crypto.subtle.encrypt(
+            { name: "AES-GCM", iv },
+            key,
+            new TextEncoder().encode(secretStr)
+        );
+        
+        // Bundle Ciphertext: IV(12) + Cipher(N)
+        const payload = new Uint8Array(12 + encryptedSecret.byteLength);
+        payload.set(iv, 0);
+        payload.set(new Uint8Array(encryptedSecret), 12);
+        const payloadHex = ChaosLock.buf2hex(payload);
+
+        // 3. Convert Session Key to BigInt (The Secret for SSS)
+        // Treat 32 bytes as one large integer.
+        let secretInt = 0n;
+        for (const b of sessionKeyBytes) {
+            secretInt = (secretInt << 8n) + BigInt(b);
+        }
+
+        // 4. Polynomial Generation f(x) = S + a1*x + ... + at*x^(t-1)
+        const coeffs: bigint[] = [secretInt];
+        for (let i = 1; i < threshold; i++) {
+            coeffs.push(BN.random());
+        }
+
+        // 5. Generate Shares (x, y)
+        const shards: string[] = [];
+        const setId = ChaosLock.buf2hex(crypto.getRandomValues(new Uint8Array(4)));
+
+        for (let x = 1; x <= shares; x++) {
+            const xBig = BigInt(x);
+            let y = 0n;
+            
+            // Eval Polynomial
+            for (let i = coeffs.length - 1; i >= 0; i--) {
+                y = BN.add(BN.mul(y, xBig), coeffs[i]);
+            }
+
+            // Format: bst_p256_{id}_{k}_{x}_{yHex}_{payloadHex}
+            const yHex = y.toString(16);
+            shards.push(`bst_p256_${setId}_${threshold}_${x}_${yHex}_${payloadHex}`);
+        }
+
         return shards;
     }
-    static combine(shards: string[]): string {
+    
+    static async combine(shards: string[]): Promise<string> {
         if (shards.length === 0) throw new Error("No shards provided");
-        const parsed = shards.map(s => {
-          const parts = s.trim().split('_');
-          if (parts[0] !== 'bst' || parts[1] !== 's1') throw new Error("Invalid format");
-          return { id: parts[2], threshold: parseInt(parts[3]), x: parseInt(parts[4]), data: ChaosLock.hex2buf(parts[5]) };
-        });
-        const first = parsed[0];
-        if (parsed.length < first.threshold) throw new Error(`Need ${first.threshold} shards`);
-        const len = first.data.length;
-        const secret = new Uint8Array(len);
-        const kShares = parsed.slice(0, first.threshold);
-        for (let i = 0; i < len; i++) {
-          let sum = 0;
-          for (let j = 0; j < kShares.length; j++) {
-            const xj = kShares[j].x;
-            const yj = kShares[j].data[i];
-            let basis = 1;
-            for (let m = 0; m < kShares.length; m++) {
-              if (m === j) continue;
-              const xm = kShares[m].x;
-              const num = xm;
-              const den = (xj ^ xm);
-              if (den === 0) throw new Error("Duplicate shares");
-              basis = SecretSharer['mul'](basis, SecretSharer['div'](num, den));
+        
+        // Parse
+        interface Shard { id: string; k: number; x: bigint; y: bigint; payload: string }
+        const parsed: Shard[] = [];
+
+        for (const s of shards) {
+            const parts = s.trim().split('_');
+            // Check Format
+            if (parts[0] !== 'bst' || (parts[1] !== 'p256' && parts[1] !== 's1')) {
+                throw new Error("Invalid or unsupported shard format.");
             }
-            sum = sum ^ SecretSharer['mul'](yj, basis);
-          }
-          secret[i] = sum;
+            
+            // Legacy Support Check
+            if (parts[1] === 's1') {
+                throw new Error("Legacy GF(2^8) shards detected. Please use the Legacy Recovery tool (v2.7 or older). This runtime enforces 256-bit Prime security.");
+            }
+
+            parsed.push({
+                id: parts[2],
+                k: parseInt(parts[3]),
+                x: BigInt(parts[4]),
+                y: BigInt("0x" + parts[5]),
+                payload: parts[6]
+            });
         }
-        return ChaosLock.dec(secret);
+
+        const first = parsed[0];
+        if (parsed.some(p => p.id !== first.id)) throw new Error("Shards belong to different secrets");
+        if (parsed.some(p => p.payload !== first.payload)) throw new Error("Shard payload mismatch (Data Corruption)");
+        if (parsed.length < first.k) throw new Error(`Need ${first.k} shards to recover (got ${parsed.length})`);
+
+        // Lagrange Interpolation (x=0 to find Secret)
+        const kShares = parsed.slice(0, first.k);
+        let secretInt = 0n;
+
+        for (let j = 0; j < kShares.length; j++) {
+            const xj = kShares[j].x;
+            const yj = kShares[j].y;
+            
+            let num = 1n;
+            let den = 1n;
+
+            for (let m = 0; m < kShares.length; m++) {
+                if (m === j) continue;
+                const xm = kShares[m].x;
+                
+                // Basis L_j(0) = product( (0 - xm) / (xj - xm) )
+                num = BN.mul(num, BN.sub(0n, xm));
+                den = BN.mul(den, BN.sub(xj, xm));
+            }
+            
+            const term = BN.mul(yj, BN.mul(num, BN.inv(den)));
+            secretInt = BN.add(secretInt, term);
+        }
+
+        // Convert SecretInt back to Bytes (Session Key)
+        let hexKey = secretInt.toString(16);
+        if (hexKey.length % 2 !== 0) hexKey = '0' + hexKey;
+        // Pad to 32 bytes (64 hex chars) if needed (leading zeros)
+        hexKey = hexKey.padStart(64, '0');
+        
+        const sessionKeyBytes = ChaosLock.hex2buf(hexKey);
+
+        // Decrypt Payload using Session Key
+        try {
+            const payloadBytes = ChaosLock.hex2buf(first.payload);
+            const iv = payloadBytes.slice(0, 12);
+            const cipher = payloadBytes.slice(12);
+
+            const key = await crypto.subtle.importKey("raw", sessionKeyBytes, "AES-GCM", false, ["decrypt"]);
+            const decrypted = await crypto.subtle.decrypt(
+                { name: "AES-GCM", iv },
+                key,
+                cipher
+            );
+            
+            // HYPER SECURE: ZERO MEMORY IMMEDIATELY
+            sessionKeyBytes.fill(0);
+
+            return new TextDecoder().decode(decrypted);
+        } catch (e) {
+            // ZERO MEMORY ON FAILURE
+            sessionKeyBytes.fill(0);
+            throw new Error("Decryption failed. The reconstructed key was incorrect (bad shards?).");
+        }
     }
 }
-// @ts-ignore
-SecretSharer['mul'] = function(a: number, b: number) { if (a===0||b===0) return 0; let i = LOG[a]+LOG[b]; return EXP[i >= 255 ? i-255 : i]; }
-// @ts-ignore
-SecretSharer['div'] = function(a: number, b: number) { if (b===0) throw new Error("Div0"); if(a===0) return 0; let i = LOG[a]-LOG[b]; return EXP[i < 0 ? i+255 : i]; }
-// @ts-ignore
-SecretSharer['pow'] = function(a: number, b: number) { if(b===0)return 1; if(a===0)return 0; return EXP[(LOG[a]*b)%255]; }
 
 
 /* ===================== RESONANCE ENGINE ===================== */
@@ -377,8 +544,8 @@ export class ChaosEngine {
       {
         name: "PBKDF2",
         salt: enc.encode(salt),
-        iterations: CURRENT_ITERATIONS, // Always use current for generator
-        hash: DIGEST,
+        iterations: PBKDF2_V2_ITERATIONS, // Always use current PBKDF2 for generator
+        hash: PBKDF2_DIGEST,
       },
       baseKey,
       bitsNeeded 
